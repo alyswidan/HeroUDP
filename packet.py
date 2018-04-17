@@ -1,7 +1,29 @@
 import struct
-class DataPacket:
-    def __init__(self,data='',seq_number=0):
 
+
+class AckPacket:
+    def __init__(self, seq_number=0):
+        self.check_sum = 0
+        self.seq_number = seq_number
+        self.format_str = '!HI'
+        self.encoding = 'ascii'
+
+    @classmethod
+    def from_raw(cls, raw_packet):
+        packet = cls()
+        packet.check_sum, packet.seq_number = struct.unpack(packet.format_str, raw_packet)
+        return packet
+
+    def get_raw(self):
+        self.raw = struct.pack(self.format_str, self.check_sum, self.seq_number)
+        return self.raw
+
+    def __str__(self):
+        return f'Ack\n' + f'seq_num = {self.seq_number}\n'
+
+
+class DataPacket:
+    def __init__(self, data='', seq_number=0):
         self.check_sum = 0
         self.data = data
         self.seq_number = seq_number
@@ -11,23 +33,27 @@ class DataPacket:
         self.encoding = 'ascii'
 
     @classmethod
-    def from_raw(cls,raw_packet):
+    def from_raw(cls, raw_packet):
         packet = cls()
-        packet.check_sum,packet.len,packet.seq_number,raw_data = struct.unpack(packet.format_str, raw_packet)
+        packet.check_sum, packet.len, packet.seq_number, raw_data \
+                                     = struct.unpack(packet.format_str, raw_packet)
         packet.data = raw_data.decode(packet.encoding)
         return packet
 
     def get_raw(self):
         self.raw = struct.pack(self.format_str, self.check_sum, self.len,
-                               self.seq_number, bytes(self.data,encoding=self.encoding))
+                               self.seq_number, bytes(self.data, encoding=self.encoding))
         return self.raw
 
     def __str__(self):
         return f'data = {self.data}\n' + f'len = {self.len}\n' + f'seq_num = {self.seq_number}\n'
 
 
-
-packet = DataPacket('hello, hamada')
+# packet = DataPacket('hello, hamada')
+# raw = packet.get_raw()
+# back = DataPacket.from_raw(raw)
+# print(back)
+packet = AckPacket(5)
 raw = packet.get_raw()
 back = DataPacket.from_raw(raw)
 print(back)
