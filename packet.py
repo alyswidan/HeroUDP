@@ -36,7 +36,7 @@ class DataPacket:
     def from_raw(cls, raw_packet):
         packet = cls()
         packet.check_sum, packet.len, packet.seq_number, raw_data \
-                                     = struct.unpack(packet.format_str, raw_packet)
+            = struct.unpack(packet.format_str, raw_packet)
         packet.data = raw_data.decode(packet.encoding)
         return packet
 
@@ -49,11 +49,7 @@ class DataPacket:
         return f'data = {self.data}\n' + f'len = {self.len}\n' + f'seq_num = {self.seq_number}\n'
 
 
-# packet = DataPacket('hello, hamada')
-# raw = packet.get_raw()
-# back = DataPacket.from_raw(raw)
-# print(back)
-packet = AckPacket(5)
-raw = packet.get_raw()
-back = DataPacket.from_raw(raw)
-print(back)
+def get_segments(data):
+    segments = [data[i:min(len(data), i + 500)] for i in range(0, len(data), 500)]
+    return segments
+
