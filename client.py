@@ -1,40 +1,36 @@
-import asyncio
+from socket import *
+
+from helpers import get_stdout_logger
+from packet import *
+import logging
+
+from receivers import UDTReceiver
+from senders import UDTSender
+
+logger = get_stdout_logger()
+BUFFER_SIZE = 508
 
 
-class EchoClientProtocol:
-    def __init__(self, loop):
-        self.loop = loop
-        self.transport = None
+clientSocket = socket(AF_INET, SOCK_DGRAM)
+(file_name, server_ip, server_port) = input('give me the file name, ip and port of the server:\n').split()
+udt_receiver = UDTReceiver(clientSocket)
 
-    def connection_made(self, transport):
-        self.transport = transport
+udt_sender = UDTSender(clientSocket, (server_ip, int(server_port)))
+udt_sender.send_data(bytes(file_name, encoding='ascii'))
 
+init_packet, server_address = udt_receiver.receive()
+number_of_packets = int(init_packet.data)
+packets = []
+for _ in range(number_of_packets):
+    packet, _ = udt_receiver.receive()
+    packets.append(packet)
+    logger.log(level=logging.INFO, msg=f'received packet with sequence number {packets[-1].seq_number}')
+    logger.log(level=logging.DEBUG, msg=f'with data {packets[-1].data}')
 
-    def datagram_received(self, data, addr):
-        print("Received:", data.decode())
-        print("Close the socket")
-        self.transport.close()
+with open(f'{file_name}_client', 'wb+') as file:
+    for packet in packets:
+        file.write(bytes(packet.data, encoding='ascii'))
 
-    def error_received(self, exc):
-        print('Error received:', exc)
+logger.log(level=logging.INFO, msg='done writing file to disk')
 
-    def connection_lost(self, exc):
-        print("Socket closed, stop the event loop")
-        loop = asyncio.get_event_loop()
-        loop.stop()
-
-
-async def get_msg():
-    while True:
-        msg = input()
-        protocol.transport.sendto(msg.encode())
-
-
-loop = asyncio.get_event_loop()
-connect = loop.create_datagram_endpoint(lambda: EchoClientProtocol(loop), remote_addr=('127.0.0.1', 9999))
-
-transport, protocol = loop.run_until_complete(connect)
-loop.run_until_complete(loop.create_task(get_msg()))
-
-loop.run_forever()
-
+clientSocket.close()

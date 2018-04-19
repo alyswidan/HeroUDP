@@ -32,17 +32,19 @@ class DataPacket:
         self.format_str = '!HHI500s'
         self.encoding = 'ascii'
 
+
     @classmethod
     def from_raw(cls, raw_packet):
         packet = cls()
         packet.check_sum, packet.len, packet.seq_number, raw_data \
             = struct.unpack(packet.format_str, raw_packet)
-        packet.data = raw_data.decode(packet.encoding)
+        packet.data = raw_data.decode(packet.encoding)[0:packet.len]
         return packet
 
     def get_raw(self):
         self.raw = struct.pack(self.format_str, self.check_sum, self.len,
-                               self.seq_number, bytes(self.data, encoding=self.encoding))
+                               self.seq_number, self.data)
+
         return self.raw
 
     def __str__(self):
