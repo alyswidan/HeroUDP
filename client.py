@@ -24,12 +24,13 @@ packets = []
 for _ in range(number_of_packets):
     packet, _ = udt_receiver.receive()
     packets.append(packet)
-    logger.log(level=logging.INFO, msg=f'received packet with sequence number {packets[-1].seq_number}')
+    logger.log(level=logging.INFO, msg=f'received packet with sequence number {packets[-1].seq_number} and type '
+                                       f'{type(packets[-1])}')
     logger.log(level=logging.DEBUG, msg=f'with data {packets[-1].data}')
 
 with open(f'{file_name}_client', 'wb+') as file:
     for packet in packets:
-        file.write(bytes(packet.data, encoding='ascii'))
+        file.write(packet.data)
 
 logger.log(level=logging.INFO, msg='done writing file to disk')
 
