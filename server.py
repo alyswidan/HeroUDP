@@ -39,7 +39,6 @@ logger.log(level=logging.INFO, msg=f'server listening on port {WELCOMING_PORT}')
 client_threads = []
 
 while 1:
-
     init_packet, client_address = udt_welcoming_receiver.receive()
     file_name = init_packet.data
     logger.log(level=logging.INFO, msg=f'client {client_address} requested {file_name}')
