@@ -51,7 +51,3 @@ class DataPacket:
         return f'data = {self.data}\n' + f'len = {self.len}\n' + f'seq_num = {self.seq_number}\n'
 
 
-def get_segments(data):
-    segments = [data[i:min(len(data), i + 500)] for i in range(0, len(data), 500)]
-    return segments
-
