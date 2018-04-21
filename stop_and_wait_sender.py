@@ -85,7 +85,6 @@ class StopAndWaitSender:
 
             self.parent.timer.cancel()
             logger.log(logging.INFO, f'received an ack for {self.seq_number}')
-            # self.parent.call_from_above_cv.notify()
 
         def transition(self):
             # if we correctly receive the ack for the packet start waiting for data with the opposite sequence number

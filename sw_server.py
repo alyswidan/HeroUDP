@@ -18,7 +18,6 @@ def send_file(file_name, sw_sender):
 
     sw_sender.send_data(bytes(str(number_of_packets), encoding='ascii'))
 
-    # sw_sender.call_from_above_cv.wait()
     logger.log(logging.INFO, 'started sending file')
 
     with open(file_name, 'rb') as file:
@@ -26,7 +25,6 @@ def send_file(file_name, sw_sender):
             data_chunk = file.read(CHUNK_SIZE)
             sw_sender.send_data(data_chunk)
             logger.log(logging.INFO, f'sent a data packet' )
-            # sw_sender.call_from_above_cv.wait()
 
 
 welcoming_receiver = StopAndWaitReceiver()
