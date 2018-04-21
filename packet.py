@@ -58,8 +58,7 @@ class DataPacket:
         gets the raw bytes representation of the DataPacket and caches the raw bytes in self.raw
         :return: raw: type=bytes, if the bytes representation is cached return it else get it first
         """
-        if self.raw is not None:
-            return self.raw
+
         encoded_data = base64.b64encode(self.data)
 
         self.raw = struct.pack(self.format_str, self.check_sum, self.len,

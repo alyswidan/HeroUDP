@@ -1,10 +1,10 @@
 from _socket import AF_INET, SOCK_DGRAM, socket
 
-from packet import DataPacket, AckPacket
+from packet import DataPacket, AckPacket,CHUNK_SIZE
 from helpers import get_stdout_logger
 import logging
 logger = get_stdout_logger()
-BUFFER_SIZE = 508
+BUFFER_SIZE = CHUNK_SIZE + 8
 
 class UDTReceiver:
     def __init__(self):

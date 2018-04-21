@@ -23,11 +23,10 @@ packets = []
 for _ in range(number_of_packets):
     packet, _ = sw_receiver.receive()
     packets.append(packet)
-    logger.log(logging.INFO, f'received packet with sequence number {packets[-1].seq_number}'
-                             f' and data {" ".join(packets[-1].data.split()[0:4])}...')
+    logger.log(logging.INFO, f'received packet with sequence number {packets[-1].seq_number}')
 
 with open(f'{file_name}_client', 'wb+') as file:
     for packet in packets:
-        file.write(bytes(packet.data, encoding='ascii'))
+        file.write(packet.data)
 
 logging.log(logging.INFO, 'done writing file to disk')
