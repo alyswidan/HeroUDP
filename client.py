@@ -7,6 +7,7 @@ import logging
 from receivers import UDTReceiver
 from senders import UDTSender
 
+# TODO: Bug-> sometimes client doesnt run till the end
 logger = get_stdout_logger()
 BUFFER_SIZE = 508
 
