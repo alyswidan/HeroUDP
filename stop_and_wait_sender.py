@@ -27,15 +27,15 @@ class StopAndWaitSender:
 
         self.current_state = self.states['wait_data_0']
 
-    def send_data(self, data_chunk):
+    def send_data(self, data_chunk, client_id):
         """
         when calling this the machine has to be in one of the two waiting for data states
         :param data_chunk: The data chunk to be sent
         :return:
         """
-        self.current_state.send(data_chunk)
+        self.current_state.send(data_chunk, client_id)
         self.current_state = self.current_state.transition()
-        self.current_state.receive()
+        self.current_state.receive(client_id)
         self.current_state = self.current_state.transition()
 
     def close(self):
@@ -52,13 +52,13 @@ class StopAndWaitSender:
             self.seq_number = seq_number
 
 
-        def send(self, data_chunk):
+        def send(self, data_chunk, client_id):
             """
             :param data_chunk: The chunk of data that is to be sent
             :returns the corresponding state function that waits for an ack for this sent packet
             """
             self.parent.udt_sender.send_data(data_chunk, self.seq_number)
-            logger.log(logging.INFO, f'sent data with sequence number {self.seq_number}')
+            logger.log(logging.INFO, f'sent data with sequence number {self.seq_number} to {client_id}')
             self.parent.current_chunk = data_chunk
             self.parent.current_seq_number = self.seq_number
             self.parent.timer = Timer(TIMEOUT, self.parent.resend_and_set_timer)
@@ -76,7 +76,7 @@ class StopAndWaitSender:
             self.parent = parent
             self.seq_number = seq_number
 
-        def receive(self):
+        def receive(self, client_id):
             """
             The function busy waits for a packet, when it receives a packet it checks if it's the correct ack,
             if so it cancels the timer and returns the next state, it also notifies any user of the machine who
@@ -89,7 +89,7 @@ class StopAndWaitSender:
                 packet, sender_address = self.parent.udt_receiver.receive()
 
             self.parent.timer.cancel()
-            logger.log(logging.INFO, f'received an ack for {self.seq_number}')
+            logger.log(logging.INFO, f'received an ack for {self.seq_number} from {client_id}')
 
         def transition(self):
             # if we correctly receive the ack for the packet start waiting for data with the opposite sequence number
