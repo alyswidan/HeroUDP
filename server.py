@@ -6,8 +6,7 @@ from threading import Thread
 import os
 import logging
 
-from receivers import UDTReceiver
-from senders import UDTSender
+
 
 logger = get_stdout_logger()
 BUFFER_SIZE = 508
