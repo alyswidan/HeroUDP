@@ -24,7 +24,9 @@ def send_file(file_name, sw_sender):
         for _ in range(number_of_packets):
             data_chunk = file.read(CHUNK_SIZE)
             sw_sender.send_data(data_chunk)
-            logger.log(logging.INFO, f'sent a data packet' )
+
+    sw_sender.close()
+    logger.log(logging.INFO, '---------------------------------------------------')
 
 
 welcoming_receiver = StopAndWaitReceiver()

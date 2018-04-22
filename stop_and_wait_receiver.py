@@ -37,8 +37,13 @@ class StopAndWaitReceiver:
         :return sw_sender: type=StopAndWaitSender : a sender pointed at the source of the packet
         """
         packet, sw_sender = self.current_state.receive()
-        self.current_state = self.current_state.transition()
+        self.current_state = self.states['wait_data_0'] if self.is_listening else self.current_state.transition()
         return packet, sw_sender
+
+    def close(self):
+        self.udt_receiver.close()
+        if self.is_listening:
+            self.udt_listening_receiver.close()
 
     class WaitForDataState:
         def __init__(self, parent, seq_number):
@@ -58,14 +63,18 @@ class StopAndWaitReceiver:
                 if packet is not None:
                     # if we received a retransmission send a duplicate ack
                     udt_sender.send_ack(packet.seq_number)
+                    logger.log(logging.INFO, f'received a retransmission and sent a duplicate ack')
+
                 packet, sender_address = receiver.receive()
                 udt_sender = UDTSender(*sender_address)
 
             # ack the correct packet
             udt_sender.send_ack(self.seq_number)
+            logger.log(logging.INFO, f'received data with sequence number {self.seq_number} ')
             logger.log(logging.INFO, f'sent an ack for {self.seq_number}')
             return packet, StopAndWaitSender(*sender_address)
 
 
         def transition(self):
             return self.parent.states[f'wait_data_{self.seq_number ^ 1}']
+

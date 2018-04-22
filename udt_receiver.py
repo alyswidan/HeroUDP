@@ -31,3 +31,6 @@ class UDTReceiver:
 
     def bind(self, port):
         self.socket.bind(('', port))
+
+    def close(self):
+        self.socket.close()

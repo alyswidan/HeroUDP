@@ -38,6 +38,10 @@ class StopAndWaitSender:
         self.current_state.receive()
         self.current_state = self.current_state.transition()
 
+    def close(self):
+        self.udt_receiver.close()
+        self.udt_sender.close()
+
     class WaitForDataState:
         """
         This class represents any of the two states where the machine waits for a call from the application
@@ -54,6 +58,7 @@ class StopAndWaitSender:
             :returns the corresponding state function that waits for an ack for this sent packet
             """
             self.parent.udt_sender.send_data(data_chunk, self.seq_number)
+            logger.log(logging.INFO, f'sent data with sequence number {self.seq_number}')
             self.parent.current_chunk = data_chunk
             self.parent.current_seq_number = self.seq_number
             self.parent.timer = Timer(TIMEOUT, self.parent.resend_and_set_timer)
