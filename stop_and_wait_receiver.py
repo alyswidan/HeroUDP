@@ -1,3 +1,4 @@
+from lossy_decorator import make_lossy_sender, get_lossy_udt_sender
 from stop_and_wait_sender import StopAndWaitSender
 from udt_receiver import UDTReceiver
 from udt_sender import UDTSender
@@ -5,6 +6,7 @@ import logging
 from helpers import get_stdout_logger
 
 logger = get_stdout_logger()
+LOSS_PROB = 0.1
 
 class StopAndWaitReceiver:
     def __init__(self):
@@ -68,7 +70,9 @@ class StopAndWaitReceiver:
                     logger.log(logging.INFO, f'received a retransmission and sent a duplicate ack')
 
                 packet, sender_address = receiver.receive()
-                udt_sender = UDTSender(*sender_address)
+
+                udt_sender = get_lossy_udt_sender(LOSS_PROB)(*sender_address,)
+
 
             # ack the correct packet
             udt_sender.send_ack(self.seq_number)

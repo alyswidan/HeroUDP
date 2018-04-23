@@ -15,7 +15,7 @@ run_unique_id = uuid.uuid4().hex[0:6]
 (file_name, server_ip, server_port) = input('give me the file name, ip and port of the server:\n').split()
 server_port = int(server_port)
 sw_sender = make_lossy_sender(StopAndWaitSender(server_ip, server_port),LOSS_PROB)
-sw_receiver = make_lossy_receiver(StopAndWaitReceiver.from_sw_sender(sw_sender),LOSS_PROB)
+sw_receiver = StopAndWaitReceiver.from_sw_sender(sw_sender)
 
 sw_sender.send_data(bytes(file_name, encoding='ascii'),run_unique_id,-1)
 # logger.log(logging.INFO, 'done sending file name')

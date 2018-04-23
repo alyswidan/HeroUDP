@@ -112,6 +112,5 @@ class StopAndWaitSender:
         the current state has to be a waiting for data state
         This function returns nothing since it is meant to be used as a callback
         """
-
         logger.log(logging.INFO, f'data packet with number {chunk_number} timed out')
         self.states[f'wait_data_{seq_num}'].send(data_chunk, client_id, chunk_number)

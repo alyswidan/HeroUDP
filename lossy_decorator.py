@@ -27,6 +27,8 @@ def get_lossy_udt_sender(loss_prob):
         def send_ack(self, seq_number):
             if get_decision() == 'sent':
                 self.sender.send_ack(seq_number)
+            else:
+                logger.log(logging.INFO, 'ack got lost')
 
 
         def __getattribute__(self, attr):
