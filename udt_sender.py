@@ -21,4 +21,5 @@ class UDTSender:
         self.socket.sendto(packet.get_raw(), self.receiver_address)
 
     def close(self):
+        logger.log(logging.INFO, 'closing socket')
         self.socket.close()

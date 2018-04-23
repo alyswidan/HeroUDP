@@ -1,0 +1,61 @@
+import numpy as np
+
+from udt_sender import UDTSender
+import logging
+from helpers import get_stdout_logger
+
+logger = get_stdout_logger()
+
+def get_lossy_udt_sender(loss_prob):
+
+    def get_decision():
+        return np.random.choice(['lost', 'sent'], p=[loss_prob, 1 - loss_prob])
+
+    class LossyUDTSender:
+        """
+        This is udt sender that losses packets with probability loss_prob
+        """
+        def __init__(self,*args, **kwargs):
+            self.sender = UDTSender(*args, *kwargs)
+            self.loss_prob = loss_prob
+
+        def send_data(self, data_chunk, seq_number):
+            if get_decision() == 'sent':
+                self.sender.send_data(data_chunk, seq_number)
+
+
+        def send_ack(self, seq_number):
+            if get_decision() == 'sent':
+                self.sender.send_ack(seq_number)
+
+
+        def __getattribute__(self, attr):
+            """
+            this is called whenever any attribute of a LossyUDTSender object is accessed. This function first tries to
+            get the attribute off LossyUDTSender. If it fails then it tries to fetch the attribute from self.oInstance (an
+            instance of the decorated class). If it manages to fetch the attribute from self.oInstance, and
+            the attribute is an instance method then `time_this` is applied.
+            """
+            try:
+                found_attr = super(LossyUDTSender, self).__getattribute__(attr)
+            except AttributeError:
+                pass
+            else:
+                return found_attr
+
+            found_attr = self.sender.__getattribute__(attr)
+
+            return found_attr
+
+
+    return LossyUDTSender
+
+def make_lossy_sender(sender, loss_prob):
+    sender.udt_sender_class = get_lossy_udt_sender(loss_prob)
+    sender.setup_senders_and_receivers()
+    return sender
+
+def make_lossy_receiver(receiver, loss_prob):
+
+    receiver.rdt_sender_class.udt_sender_class = get_lossy_udt_sender(loss_prob)
+    return receiver

@@ -8,7 +8,9 @@ logger = get_stdout_logger()
 
 class StopAndWaitReceiver:
     def __init__(self):
-        self.udt_receiver = UDTReceiver()
+        self.udt_receiver_class = UDTReceiver
+        self.rdt_sender_class = StopAndWaitSender
+        self.udt_receiver = self.udt_receiver_class()
         self.udt_listening_receiver = None
         self.states = {'wait_data_0': self.WaitForDataState(self,0),
                        'wait_data_1': self.WaitForDataState(self,1)}
@@ -26,7 +28,7 @@ class StopAndWaitReceiver:
         This sets up the receiver to start listening for incoming connections on the port passed in as a parameter.
         :param port:
         """
-        self.udt_listening_receiver = UDTReceiver()
+        self.udt_listening_receiver = self.udt_receiver_class()
         self.udt_listening_receiver.bind(port)
         self.is_listening = True
 
@@ -72,7 +74,7 @@ class StopAndWaitReceiver:
             udt_sender.send_ack(self.seq_number)
             logger.log(logging.INFO, f'received data with sequence number {self.seq_number} ')
             logger.log(logging.INFO, f'sent an ack for {self.seq_number}')
-            return packet, StopAndWaitSender(*sender_address)
+            return packet, self.parent.rdt_sender_class(*sender_address)
 
 
         def transition(self):
