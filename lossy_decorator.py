@@ -53,11 +53,17 @@ def get_lossy_udt_sender(loss_prob):
     return LossyUDTSender
 
 def make_lossy_sender(sender, loss_prob):
+    """
+    use this to make lossy senders and if u want receivers to lose acks
+    use the lossy udt sender above to make lossy udt_senders and use those to send the acks,
+    the above maker is called as LossyUDT(loss_prop)(server_ip, server_port)
+    -- see stop and wait receiver for an example
+    :param sender:
+    :param loss_prob:
+    :return:
+    """
+
+
     sender.udt_sender_class = get_lossy_udt_sender(loss_prob)
     sender.setup_senders_and_receivers()
     return sender
-
-def make_lossy_receiver(receiver, loss_prob):
-
-    receiver.rdt_sender_class.udt_sender_class = get_lossy_udt_sender(loss_prob)
-    return receiver
