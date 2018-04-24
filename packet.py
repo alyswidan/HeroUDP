@@ -67,6 +67,6 @@ class DataPacket:
         return self.raw
 
     def __str__(self):
-        return f'data = {self.data}\n' + f'len = {self.len}\n' + f'seq_num = {self.seq_number}\n'
+        return f'data = {self.data}, ' + f'len = {self.len}, ' + f'seq_num = {self.seq_number}'
 
 
