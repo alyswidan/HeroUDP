@@ -13,8 +13,6 @@ WELCOMING_PORT = 30000
 logger = get_stdout_logger()
 
 def send_file(file_name, sr_sender):
-    sender_thread = Thread(target=sr_sender.wait_for_data, name='sender')
-    sender_thread.start()
     for i in range(1,9):
         sr_sender.insert_in_buffer(i)
         time.sleep(5)
