@@ -21,7 +21,7 @@ class UDTReceiver:
 
 
         if len(raw_packet) == BUFFER_SIZE:
-            # logger.log(logging.INFO, 'received a data packet')
+            logger.log(logging.INFO, f'received a data packet from {server_address}')
             packet = DataPacket.from_raw(raw_packet)
         else:
             # logger.log(logging.INFO, 'received an ACk')

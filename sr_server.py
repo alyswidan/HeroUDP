@@ -5,22 +5,29 @@ import logging
 import os
 import uuid
 
+from sr_receiver import SelectiveRepeatReceiver
 from sr_sender import SelectiveRepeatSender
 from lossy_decorator import *
 CHUNK_SIZE = 500
 WELCOMING_PORT = 30000
 logger = get_stdout_logger()
 
-def send_file(file_name):
-    sr_sender = SelectiveRepeatSender()
+def send_file(file_name, sr_sender):
     sender_thread = Thread(target=sr_sender.wait, name='sender')
     sender_thread.start()
     for i in range(1,9):
         sr_sender.insert_in_buffer(i)
+
 
     sr_sender.insert_in_buffer(-1)
 
     sender_thread.join()
 
 
-send_file('sa')
+listening_receiver = SelectiveRepeatReceiver()
+listening_receiver.listen(20000)
+while True:
+    init_packet, client_address = listening_receiver.accept()
+    client_thread = Thread(target=send_file, args=('',SelectiveRepeatSender(*client_address)))
+    client_thread.daemon = True
+    client_thread.start()
