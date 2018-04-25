@@ -4,7 +4,7 @@ from helpers import get_stdout_logger
 import logging
 import os
 import uuid
-
+import time
 from sr_receiver import SelectiveRepeatReceiver
 from sr_sender import SelectiveRepeatSender
 from lossy_decorator import *
@@ -13,13 +13,14 @@ WELCOMING_PORT = 30000
 logger = get_stdout_logger()
 
 def send_file(file_name, sr_sender):
-    sender_thread = Thread(target=sr_sender.wait, name='sender')
+    sender_thread = Thread(target=sr_sender.wait_for_data, name='sender')
     sender_thread.start()
     for i in range(1,9):
         sr_sender.insert_in_buffer(i)
+        time.sleep(5)
 
 
-    sr_sender.insert_in_buffer(-1)
+    sr_sender.insert_in_buffer(None)
 
     sender_thread.join()
 
