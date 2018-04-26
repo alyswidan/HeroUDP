@@ -22,16 +22,20 @@ class SelectiveRepeatReceiver:
 
 
     def start_data_waiter(self):
-        Thread(target=self.wait_for_data).start()
+        t = Thread(target=self.wait_for_data)
+        t.daemon = True
+        t.start()
 
 
     def wait_for_data(self):
 
         while True:
+            logger.log(logging.INFO, 'in the waiter loop')
             packet, sender_address = None, None
             while packet is None:
                 packet, sender_address = self.udt_receiver.receive()
 
+            logger.log(logging.INFO, f'got {packet.data} from {sender_address}')
             udt_sender = UDTSender(*sender_address)
             udt_sender.send_ack(packet.seq_number)
             self.adjust_window(packet)
@@ -45,6 +49,7 @@ class SelectiveRepeatReceiver:
             if pkt is None:
                 break
 
+            logger.log(logging.INFO, f'delivering packet with data {pkt.data} to upper layer')
             self.data_queue.append(pkt)
             self.data_queue_cv.notify()
             self.current_window[i] = None

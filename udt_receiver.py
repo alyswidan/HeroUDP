@@ -43,7 +43,7 @@ class UDTReceiver:
 class InterruptableUDTReceiver:
     def __init__(self, udt_receiver):
         self.udt_receiver = udt_receiver
-        udt_receiver.socket.set_blocking(0)
+        udt_receiver.socket.setblocking(0)
         self.socket = udt_receiver.socket
         self._r_pipe, self._w_pipe = os.pipe()
 

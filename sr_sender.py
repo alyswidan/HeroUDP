@@ -1,4 +1,5 @@
 from collections import deque
+from collections import namedtuple
 from threading import Semaphore, Lock, current_thread, Condition, Timer, Thread
 import time
 import logging
@@ -32,14 +33,20 @@ class SelectiveRepeatSender:
         self.window_size = window_size
 
         # the window used to buffer packets for retransmission
-        self.current_window = []
+        self.WindowEntry = namedtuple('WindowEntry', ['data_chunk', 'is_acked'])
+        self.current_window = deque([self.WindowEntry(None, False) for _ in range(window_size)])
         self.next_slot = 0
+        self.base_seq_num = 0
 
-        self.ack_queue = deque() # this is used by a thread waiting for an ack to tell the main thread about the ack
-        self.acked_packets = [] # used to track which packets in the current window are acked
+        self.required_acks_queue = deque() # used by the data waiter
+                                           #  thread to tell the ack
+                                           #  waiter it requires an ack for this packet
+        self.acked_pkts_queue = deque() # this is used by a thread waiting for an ack to tell the main thread about the ack
+        self.timed_out_queue = deque()
 
         self.done_sending = False
         self.waiting_to_close = False
+        self.udt_sender = UDTSender(receiver_ip, receiver_port)
 
 
     def start_data_waiter(self):
@@ -61,33 +68,40 @@ class SelectiveRepeatSender:
             ack = self.get_ack()
 
             if ack is not None:
-                self.acked_packets[self.get_window_idx(ack.seq_num)] = True
+                self.current_window[self.get_window_idx(ack.seq_num)].is_acked = True
                 self.adjust_window()
 
     def start_ack_waiter(self):
         seq_num = self.get_next_seq_num()
         udt_sender = self.send_packet(seq_num)
+        self.udt_sender = udt_sender
         ack_waiter = Thread(target=self.wait_for_ack, args=(seq_num, udt_sender,))
         ack_waiter.daemon = True
         ack_waiter.start()
 
     def add_to_window(self, data_chunk):
-        self.current_window.append(data_chunk)
-        self.acked_packets.append(False)
+        self.current_window[self.next_slot] = self.WindowEntry(data_chunk, False)
+        self.next_slot += 1
 
     def adjust_window(self):
-        for i, is_acked in self.acked_packets:
+        shifts = 0
+        for i, _, is_acked in enumerate(self.current_window):
             if not is_acked:
                 break
-            del self.acked_packets[i]
-            del self.current_window[i]
+            shifts += 1
+            self.current_window[i] = self.WindowEntry(None, False)
+
+        self.next_slot -= shifts
+        self.current_window.rotate(-shifts)
 
         if self.waiting_to_close and len(self.current_window) == 0:
             self.done_sending = True
 
     def send_packet(self, seq_num):
         udt_sender = UDTSender(self.receiver_ip, self.receiver_port)
-        udt_sender.send_data(self.current_window[self.get_window_idx(seq_num)], seq_num)
+        data_chunk = self.current_window[self.get_window_idx(seq_num)].data_chunk
+        udt_sender.send_data(data_chunk, seq_num)
+        logger.log(logging.INFO, f'sent packet with data {data_chunk}')
         return udt_sender
 
     def wait_for_ack(self, seq_num, udt_sender):
@@ -100,26 +114,28 @@ class SelectiveRepeatSender:
             try:
                 packet, _ = udt_receiver.receive()
             except: # the timer fired
+                logger.log(logging.INFO, f'packet with {seq_num} timed out')
                 self.send_packet(seq_num)
                 packet_timer = Timer(TIMEOUT, udt_receiver.interrupt)
 
         packet_timer.cancel()
         self.insert_ack(packet)
+        logger.log(logging.INFO, f'got an ack for packet {seq_num}')
         udt_sender.close()
 
 
 
 
     def get_window_idx(self, seq_num):
-        return seq_num - self.current_window[0].seq_num
+        return seq_num - self.base_seq_num
 
     def insert_ack(self, ack):
-        self.ack_queue.append()
+        self.acked_pkts_queue.append()
 
     def get_ack(self):
         ack = None
         try:
-            ack = self.ack_queue.popleft()
+            ack = self.acked_pkts_queue.popleft()
         except:
             pass
 
@@ -154,6 +170,7 @@ class SelectiveRepeatSender:
         with self.buffer_cond_var:
             self.buffer_cond_var.wait_for(self.slot_available_in_window)
             self.buffer.append(data_chunk)
+            logger.log(logging.INFO, f'put {data_chunk} in buffer')
 
     def get_from_buffer(self):
         """
@@ -164,6 +181,7 @@ class SelectiveRepeatSender:
         with self.buffer_cond_var:
             try:
                 data_chunk = self.buffer.popleft()
+                logger.log(logging.INFO, f'got {data_chunk} from buffer')
             except:
                 pass
 

@@ -16,7 +16,7 @@ class UDTSender:
         self.socket.sendto(packet.get_raw(), self.receiver_address)
 
     def send_ack(self, seq_number):
-        # logger.log(logging.INFO, 'sent an Ack')
+        logger.log(logging.INFO, f'sent an Ack to {self.receiver_address}')
         packet = AckPacket(seq_number)
         self.socket.sendto(packet.get_raw(), self.receiver_address)
 
