@@ -19,6 +19,8 @@ class SelectiveRepeatReceiver:
         self.base_seq_num = 0
         self.data_queue = deque()
         self.data_queue_cv = Condition()
+        self.done_receiving = False
+        self.waiting_to_close = False
 
 
     def start_data_waiter(self):
@@ -29,7 +31,7 @@ class SelectiveRepeatReceiver:
 
     def wait_for_data(self):
 
-        while True:
+        while not self.done_receiving:
             logger.log(logging.INFO, 'in the waiter loop')
             packet, sender_address = None, None
             while packet is None:
@@ -51,7 +53,8 @@ class SelectiveRepeatReceiver:
 
             logger.log(logging.INFO, f'delivering packet with data {pkt.data} to upper layer')
             self.data_queue.append(pkt)
-            self.data_queue_cv.notify()
+            with self.data_queue_cv:
+                self.data_queue_cv.notify()
             self.current_window[i] = None
             shifts += 1
 
@@ -84,5 +87,15 @@ class SelectiveRepeatReceiver:
         if not self.is_listening:
             raise TypeError('non listening receiver cannot accept connections')
 
-        init_packet, client_address = self.udt_listening_receiver.receive()
-        return init_packet, client_address
+        init_packet, sender_address = self.udt_listening_receiver.receive()
+        logger.log(logging.INFO, f'got {init_packet.data} from {sender_address}')
+        udt_sender = UDTSender(*sender_address)
+        udt_sender.send_ack(init_packet.seq_number)
+        self.adjust_window(init_packet)
+        return init_packet, sender_address
+
+    def close(self):
+        if len(self.data_queue) == 0:
+            self.done_receiving = True
+        else:
+            self.waiting_to_close = True

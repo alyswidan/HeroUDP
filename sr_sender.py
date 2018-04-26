@@ -13,7 +13,8 @@ TIMEOUT = 0.1
 
 class SelectiveRepeatSender:
 
-    def __init__(self, receiver_ip, receiver_port, window_size=4, max_seq_num=-1):
+
+    def __init__(self, receiver_ip, receiver_port, window_size=4, max_seq_num=-1, buffer_size = 5):
         """"
         I use deque's because using them as queues is faster than using lists as queues and
         they are thread safe
@@ -31,22 +32,22 @@ class SelectiveRepeatSender:
         self.buffer = deque()
         self.buffer_cond_var = Condition() # used by the chunk sender to wait for a slot in the queue
         self.window_size = window_size
+        self.buffer_size = buffer_size
 
         # the window used to buffer packets for retransmission
-        self.WindowEntry = namedtuple('WindowEntry', ['data_chunk', 'is_acked'])
         self.current_window = deque([self.WindowEntry(None, False) for _ in range(window_size)])
         self.next_slot = 0
         self.base_seq_num = 0
 
-        self.required_acks_queue = deque() # used by the data waiter
-                                           #  thread to tell the ack
-                                           #  waiter it requires an ack for this packet
+        self.sending_lock = Lock()
+        self.packet_timers = {}
         self.acked_pkts_queue = deque() # this is used by a thread waiting for an ack to tell the main thread about the ack
         self.timed_out_queue = deque()
 
         self.done_sending = False
         self.waiting_to_close = False
         self.udt_sender = UDTSender(receiver_ip, receiver_port)
+        self.udt_receiver = UDTReceiver.from_udt_sender(self.udt_sender)
 
 
     def start_data_waiter(self):
@@ -59,78 +60,96 @@ class SelectiveRepeatSender:
         waits for a packet to be placed in the buffer until it gets a None from the buffer
         :return:
         """
+        self.start_ack_waiter() # start listening for any ack
         while not self.done_sending:
+            logger.log(logging.INFO, 'in the data waiter loop')
             data_chunk = self.get_from_buffer()
+
             if data_chunk is not None:
-                self.add_to_window(data_chunk)
-                self.start_ack_waiter()
+                if self.add_to_window(data_chunk):
+                    self.send_packet(self.get_next_seq_num())
 
             ack = self.get_ack()
 
             if ack is not None:
-                self.current_window[self.get_window_idx(ack.seq_num)].is_acked = True
+                self.current_window[self.get_window_idx(ack.seq_number)].is_acked = True
                 self.adjust_window()
 
+
+            timed_out_seq_num = self.get_timed_out_seq_num()
+            if timed_out_seq_num is not None:
+                self.send_packet(timed_out_seq_num)
+
+
+
     def start_ack_waiter(self):
-        seq_num = self.get_next_seq_num()
-        udt_sender = self.send_packet(seq_num)
-        self.udt_sender = udt_sender
-        ack_waiter = Thread(target=self.wait_for_ack, args=(seq_num, udt_sender,))
+        ack_waiter = Thread(target=self.wait_for_ack)
         ack_waiter.daemon = True
         ack_waiter.start()
 
+    def wait_for_ack(self):
+
+        while not self.done_sending:
+                logger.log(logging.INFO, 'in the ack waiter loop')
+                packet = None
+                while packet is None or isinstance(packet, DataPacket):
+                    packet, _ = self.udt_receiver.receive()
+
+                self.packet_timers[packet.seq_number].cancel()
+                del self.packet_timers[packet.seq_number]
+
+                self.insert_ack(packet)
+                logger.log(logging.INFO, f'got an ack for packet {packet.seq_number}')
+
+    def timeout(self, seq_num):
+        self.timed_out_queue.append(seq_num)
+        logger.log(logging.INFO, f'{seq_num} timed out')
+
+    def send_packet(self, seq_num):
+
+
+        with self.sending_lock:
+            data_chunk = self.current_window[self.get_window_idx(seq_num)].data_chunk
+            self.udt_sender.send_data(data_chunk, seq_num)
+            self.packet_timers[seq_num] = Timer(TIMEOUT, self.timeout, args=(seq_num, ))
+            self.packet_timers[seq_num].start()
+            logger.log(logging.INFO, f'sent packet with data {data_chunk}')
+            logger.log(logging.INFO, f'starting the wait for {seq_num}')
+
     def add_to_window(self, data_chunk):
-        self.current_window[self.next_slot] = self.WindowEntry(data_chunk, False)
-        self.next_slot += 1
+        if self.next_slot != self.window_size:
+            logger.log(logging.INFO, f'putting {data_chunk} into slot number {self.next_slot}, base={self.base_seq_num}')
+            self.current_window[self.next_slot] = self.WindowEntry(data_chunk, False)
+            self.next_slot += 1
+            return True
+        return False
 
     def adjust_window(self):
         shifts = 0
-        for i, _, is_acked in enumerate(self.current_window):
-            if not is_acked:
+        for i, entry in enumerate(self.current_window):
+            if not  entry.is_acked:
                 break
             shifts += 1
             self.current_window[i] = self.WindowEntry(None, False)
 
-        self.next_slot -= shifts
+
+        self.next_slot = self.window_size - shifts
         self.current_window.rotate(-shifts)
+        self.base_seq_num += shifts
 
-        if self.waiting_to_close and len(self.current_window) == 0:
+        logger.log(logging.INFO, f'window after adjusting = {self.current_window}')
+
+        if self.waiting_to_close and len(self.packet_timers) == 0:
             self.done_sending = True
-
-    def send_packet(self, seq_num):
-        udt_sender = UDTSender(self.receiver_ip, self.receiver_port)
-        data_chunk = self.current_window[self.get_window_idx(seq_num)].data_chunk
-        udt_sender.send_data(data_chunk, seq_num)
-        logger.log(logging.INFO, f'sent packet with data {data_chunk}')
-        return udt_sender
-
-    def wait_for_ack(self, seq_num, udt_sender):
-        udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(udt_sender))
-        packet_timer = Timer(TIMEOUT, udt_receiver.interrupt)
-        packet_timer.start()
-
-        packet = None
-        while packet is None or isinstance(packet, DataPacket):
-            try:
-                packet, _ = udt_receiver.receive()
-            except: # the timer fired
-                logger.log(logging.INFO, f'packet with {seq_num} timed out')
-                self.send_packet(seq_num)
-                packet_timer = Timer(TIMEOUT, udt_receiver.interrupt)
-
-        packet_timer.cancel()
-        self.insert_ack(packet)
-        logger.log(logging.INFO, f'got an ack for packet {seq_num}')
-        udt_sender.close()
-
-
+            self.get_from_buffer()
+            logger.log(logging.INFO, 'closed the sender successfully')
 
 
     def get_window_idx(self, seq_num):
         return seq_num - self.base_seq_num
 
     def insert_ack(self, ack):
-        self.acked_pkts_queue.append()
+        self.acked_pkts_queue.append(ack)
 
     def get_ack(self):
         ack = None
@@ -140,9 +159,6 @@ class SelectiveRepeatSender:
             pass
 
         return ack
-
-    def slot_available_in_window(self):
-        return self.next_slot != self.window_size
 
     def get_next_seq_num(self):
         """
@@ -168,7 +184,8 @@ class SelectiveRepeatSender:
                 raise ValueError('value of parameter data chunk is not byte like, int or string')
 
         with self.buffer_cond_var:
-            self.buffer_cond_var.wait_for(self.slot_available_in_window)
+            self.buffer_cond_var.wait_for(lambda : len(self.buffer) < self.buffer_size)
+
             self.buffer.append(data_chunk)
             logger.log(logging.INFO, f'put {data_chunk} in buffer')
 
@@ -180,8 +197,9 @@ class SelectiveRepeatSender:
         data_chunk = None
         with self.buffer_cond_var:
             try:
-                data_chunk = self.buffer.popleft()
-                logger.log(logging.INFO, f'got {data_chunk} from buffer')
+                if self.next_slot != self.window_size:
+                    data_chunk = self.buffer.popleft()
+                    logger.log(logging.INFO, f'got {data_chunk} from buffer')
             except:
                 pass
 
@@ -191,7 +209,28 @@ class SelectiveRepeatSender:
         return data_chunk
 
     def close(self):
-        if len(self.current_window) == 0:
+        logger.log(logging.INFO, 'attempting to close sender')
+        if len(self.packet_timers) == 0:
             self.done_sending = True
         else:
+            logger.log(logging.INFO, 'waiting to close flag raised')
             self.waiting_to_close = True
+
+
+
+    def get_timed_out_seq_num(self):
+        seq_num = None
+        try:
+            seq_num = self.timed_out_queue.popleft()
+        except:
+            pass
+        return seq_num
+
+    class WindowEntry:
+        def __init__(self, data_chunk, is_acked):
+            self.data_chunk = data_chunk
+            self.is_acked = is_acked
+        def __str__(self):
+            return f'({self.data_chunk}, {self.is_acked})'
+
+        __repr__ = __str__
