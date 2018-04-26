@@ -13,14 +13,11 @@ WELCOMING_PORT = 30000
 logger = get_stdout_logger()
 
 def send_file(file_name, sr_sender):
+    sr_sender.start_data_waiter()
     for i in range(1,9):
         sr_sender.insert_in_buffer(i)
-        time.sleep(5)
 
-
-    sr_sender.insert_in_buffer(None)
-
-    sender_thread.join()
+    sr_sender.close()
 
 
 listening_receiver = SelectiveRepeatReceiver()

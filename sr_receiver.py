@@ -1,5 +1,5 @@
 from collections import deque
-from threading import Semaphore, Lock, current_thread
+from threading import Semaphore, Lock, current_thread, Condition, Thread
 import time
 import logging
 from helpers import get_stdout_logger
@@ -11,14 +11,54 @@ logger = get_stdout_logger()
 
 class SelectiveRepeatReceiver:
 
-    def __init__(self):
+    def __init__(self, window_size=4):
         self.udt_receiver = UDTReceiver()
         self.udt_listening_receiver = UDTReceiver()
+        self.current_window = deque([None for _ in range(window_size)])
+        self.window_size = window_size
+        self.base_seq_num = 0
+        self.data_queue = deque()
+        self.data_queue_cv = Condition()
+
+
+    def start_data_waiter(self):
+        Thread(target=self.wait_for_data).start()
+
+
+    def wait_for_data(self):
+
+        while True:
+            packet, sender_address = None, None
+            while packet is None:
+                packet, sender_address = self.udt_receiver.receive()
+
+            udt_sender = UDTSender(*sender_address)
+            udt_sender.send_ack(packet.seq_number)
+            self.adjust_window(packet)
+
+    def adjust_window(self, packet):
+        if packet.seq_number in range(self.base_seq_num, self.base_seq_num + self.window_size):
+            self.current_window[packet.seq_number - self.base_seq_num] = packet
+
+        shifts = 0
+        for i, pkt in enumerate(self.current_window):
+            if pkt is None:
+                break
+
+            self.data_queue.append(pkt)
+            self.data_queue_cv.notify()
+            self.current_window[i] = None
+            shifts += 1
+
+        self.current_window.rotate(-shifts)
+        self.base_seq_num += shifts
 
 
     def get_packet(self):
-        logger.log(logging.INFO,f'trying to get packet')
-        return self.udt_receiver.receive()[0]
+
+        with self.data_queue_cv:
+            self.data_queue_cv.wait_for(lambda : len(self.data_queue) > 0)
+            return self.data_queue.popleft()
 
     @classmethod
     def from_sender(cls, sr_sender):
