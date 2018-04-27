@@ -33,6 +33,7 @@ class SelectiveRepeatSender:
         self.buffer_cond_var = Condition() # used by the chunk sender to wait for a slot in the queue
         self.window_size = window_size
         self.buffer_size = buffer_size
+        self.buffer_consumed = False
 
         # the window used to buffer packets for retransmission
         self.current_window = deque([self.WindowEntry(None, False) for _ in range(window_size)])
@@ -66,7 +67,7 @@ class SelectiveRepeatSender:
         while not self.done_sending:
             data_chunk = self.get_from_buffer()
 
-            if data_chunk is not None:
+            if data_chunk is not None :
                 if self.add_to_window(data_chunk):
                     self.send_packet(self.get_next_seq_num())
 
@@ -141,7 +142,10 @@ class SelectiveRepeatSender:
         logger.log(logging.INFO, f'window after adjusting = {self.current_window}')
 
         with self.closing_cv:
-            self.closing_cv.notify()
+            if sum([0 if entry.data_chunk is None else 1 for entry in self.current_window])==0:
+                logger.log(logging.INFO, 'notifying' )
+
+                self.closing_cv.notify()
 
 
     def get_window_idx(self, seq_num):
@@ -199,6 +203,9 @@ class SelectiveRepeatSender:
                 if self.next_slot != self.window_size:
                     data_chunk = self.buffer.popleft()
                     logger.log(logging.INFO, f'got {data_chunk} from buffer')
+                    if len(data_chunk) == 0:
+                        self.buffer_consumed = True
+                        data_chunk = None
             except:
                 pass
 
@@ -210,8 +217,8 @@ class SelectiveRepeatSender:
     def close(self):
         logger.log(logging.INFO, 'attempting to close sender')
         with self.closing_cv:
-            self.closing_cv.wait_for(lambda : len(self.packet_timers) == 0)
-        self.terminate_waiters()
+            self.closing_cv.wait_for(lambda : self.buffer_consumed)
+            self.terminate_waiters()
 
 
     def terminate_waiters(self):

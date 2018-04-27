@@ -18,6 +18,7 @@ def send_file(file_name, sr_sender):
         logger.log(logging.INFO, f'trying to put {i} ')
         sr_sender.insert_in_buffer(i)
 
+    sr_sender.insert_in_buffer(bytes(0))
     logger.log(logging.INFO, 'done putting data into buffer')
 
     sr_sender.close()
@@ -33,3 +34,5 @@ while True:
     client_thread.start()
     client_thread.join()
     break
+
+

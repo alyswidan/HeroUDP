@@ -41,6 +41,7 @@ class SelectiveRepeatReceiver:
             logger.log(logging.INFO, f'got {packet.data} from {sender_address}')
             udt_sender = UDTSender(*sender_address)
             udt_sender.send_ack(packet.seq_number)
+            logger.log(logging.INFO, f'sent ack for {packet.data}')
             self.adjust_window(packet)
 
     def adjust_window(self, packet):
