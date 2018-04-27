@@ -46,6 +46,7 @@ class SelectiveRepeatSender:
 
         self.done_sending = False
         self.waiting_to_close = False
+        self.closing_cv = Condition()
         self.udt_sender = UDTSender(receiver_ip, receiver_port)
         self.udt_receiver = UDTReceiver.from_udt_sender(self.udt_sender)
 
@@ -53,6 +54,7 @@ class SelectiveRepeatSender:
     def start_data_waiter(self):
         sender_thread = Thread(target=self.wait_for_data)
         sender_thread.start()
+        return sender_thread
 
 
     def wait_for_data(self):
@@ -62,7 +64,6 @@ class SelectiveRepeatSender:
         """
         self.start_ack_waiter() # start listening for any ack
         while not self.done_sending:
-            logger.log(logging.INFO, 'in the data waiter loop')
             data_chunk = self.get_from_buffer()
 
             if data_chunk is not None:
@@ -90,10 +91,10 @@ class SelectiveRepeatSender:
     def wait_for_ack(self):
 
         while not self.done_sending:
-                logger.log(logging.INFO, 'in the ack waiter loop')
                 packet = None
                 while packet is None or isinstance(packet, DataPacket):
                     packet, _ = self.udt_receiver.receive()
+                    logger.log(logging.INFO, 'in the ack receiving loop')
 
                 self.packet_timers[packet.seq_number].cancel()
                 del self.packet_timers[packet.seq_number]
@@ -139,10 +140,8 @@ class SelectiveRepeatSender:
 
         logger.log(logging.INFO, f'window after adjusting = {self.current_window}')
 
-        if self.waiting_to_close and len(self.packet_timers) == 0:
-            self.done_sending = True
-            self.get_from_buffer()
-            logger.log(logging.INFO, 'closed the sender successfully')
+        with self.closing_cv:
+            self.closing_cv.notify()
 
 
     def get_window_idx(self, seq_num):
@@ -210,11 +209,16 @@ class SelectiveRepeatSender:
 
     def close(self):
         logger.log(logging.INFO, 'attempting to close sender')
-        if len(self.packet_timers) == 0:
-            self.done_sending = True
-        else:
-            logger.log(logging.INFO, 'waiting to close flag raised')
-            self.waiting_to_close = True
+        with self.closing_cv:
+            self.closing_cv.wait_for(lambda : len(self.packet_timers) == 0)
+        self.terminate_waiters()
+
+
+    def terminate_waiters(self):
+        self.udt_receiver.close()
+        self.done_sending = True
+        self.get_from_buffer() # notify the producer
+        logger.log(logging.INFO, 'closed the sender successfully')
 
 
 

@@ -3,6 +3,7 @@ from threading import Semaphore, Lock, current_thread, Condition, Thread
 import time
 import logging
 from helpers import get_stdout_logger
+from packet import AckPacket
 from sr_sender import SelectiveRepeatSender
 from udt_receiver import UDTReceiver
 from udt_sender import UDTSender
@@ -32,9 +33,9 @@ class SelectiveRepeatReceiver:
     def wait_for_data(self):
 
         while not self.done_receiving:
-            logger.log(logging.INFO, 'in the waiter loop')
             packet, sender_address = None, None
-            while packet is None:
+            while packet is None or isinstance(packet, AckPacket):
+                # this loop sometimes captures the ack from the first message
                 packet, sender_address = self.udt_receiver.receive()
 
             logger.log(logging.INFO, f'got {packet.data} from {sender_address}')
