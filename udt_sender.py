@@ -11,12 +11,12 @@ class UDTSender:
         self.receiver_address = (server_ip, server_port)
 
     def send_data(self, data_chunk, seq_number):
-        logger.log(logging.INFO, f'sent a data packet to {self.receiver_address}')
+        logger.log(logging.INFO, f'(udt_sender) : sent data with seq number {seq_number} to {self.receiver_address}')
         packet = DataPacket(data_chunk, seq_number)
         self.socket.sendto(packet.get_raw(), self.receiver_address)
 
     def send_ack(self, seq_number):
-        logger.log(logging.INFO, f'sent an Ack to {self.receiver_address}')
+        logger.log(logging.INFO, f'(udt_sender) : sent an Ack with seq number {seq_number} to {self.receiver_address}')
         packet = AckPacket(seq_number)
         self.socket.sendto(packet.get_raw(), self.receiver_address)
 

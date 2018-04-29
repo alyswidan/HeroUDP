@@ -13,6 +13,7 @@ WELCOMING_PORT = 30000
 logger = get_stdout_logger()
 
 def send_file(file_name, sr_sender):
+    time.sleep(1)
     sr_sender.start_data_waiter()
     for i in range(8):
         logger.log(logging.INFO, f'trying to put {i} ')

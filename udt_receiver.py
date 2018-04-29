@@ -1,17 +1,19 @@
 
-from _socket import AF_INET, SOCK_DGRAM, socket
-
+from socket import *
+from threading import current_thread
 from packet import DataPacket, AckPacket,CHUNK_SIZE
 from helpers import get_stdout_logger
 import logging
 import os
 import select
 logger = get_stdout_logger()
-BUFFER_SIZE = CHUNK_SIZE + 8
+QUEUE_SIZE = 50
+BUFFER_SIZE = (CHUNK_SIZE + 8)*QUEUE_SIZE
 
 class UDTReceiver:
     def __init__(self):
         self.socket = socket(AF_INET, SOCK_DGRAM)
+        self.socket.setsockopt(SOL_SOCKET, SO_RCVBUF, BUFFER_SIZE)
 
     @classmethod
     def from_udt_sender(cls, udt_sender ):
@@ -22,13 +24,13 @@ class UDTReceiver:
     def receive(self):
         raw_packet, server_address = self.socket.recvfrom(BUFFER_SIZE)
 
+        if len(raw_packet) == BUFFER_SIZE//QUEUE_SIZE:
 
-        if len(raw_packet) == BUFFER_SIZE:
-            logger.log(logging.INFO, f'received a data packet from {server_address}')
             packet = DataPacket.from_raw(raw_packet)
+            logger.log(logging.INFO, f'(udt_receiver) ({current_thread()}) : received {packet.data} from {server_address}')
         else:
-            # logger.log(logging.INFO, 'received an ACk')
             packet = AckPacket.from_raw(raw_packet)
+            logger.log(logging.INFO, f'(udt_receiver) ({current_thread()}) : received an ACk with seq num {packet.seq_number} from {server_address}')
 
         return packet, server_address
 
@@ -49,8 +51,10 @@ class InterruptableUDTReceiver:
 
 
     def receive(self):
+        print('hi')
         read, _w, errors = select.select([self._r_pipe, self.socket], [], [self.socket])
         if self.socket in read:
+            print('trying')
             return self.udt_receiver.receive()
         raise InterruptException
 
