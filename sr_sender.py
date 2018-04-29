@@ -14,7 +14,7 @@ TIMEOUT = 0.1
 class SelectiveRepeatSender:
 
 
-    def __init__(self, receiver_ip, receiver_port, window_size=4, max_seq_num=-1, buffer_size = 5):
+    def __init__(self, receiver_ip, receiver_port, window_size=9, max_seq_num=-1, buffer_size = 5):
         """"
         I use deque's because using them as queues is faster than using lists as queues and
         they are thread safe
@@ -102,7 +102,12 @@ class SelectiveRepeatSender:
 
 
                 logger.log(logging.INFO,f'(sr_sender) | {current_thread()} received {packet.seq_number}')
-                self.packet_timers[packet.seq_number].cancel()
+
+                try:
+                    self.packet_timers[packet.seq_number].cancel()
+                except:
+                    pass
+
                 self.insert_ack(packet)
                 logger.log(logging.INFO, f'(sr_sender) : received an ACk with seq num {packet.seq_number}'
                                          f' from {sender_address}')
@@ -128,7 +133,7 @@ class SelectiveRepeatSender:
     def add_to_window(self, data_chunk):
         if self.next_slot != self.window_size:
             logger.log(logging.INFO, f'(sr_sender) : putting {data_chunk} into slot number {self.next_slot}'
-                                     f', base={self.base_seq_num}')
+                                     f', base={self.base_seq_num}, deque len = {len(self.current_window)}')
             self.current_window[self.next_slot] = self.WindowEntry(data_chunk, False)
             self.next_slot += 1
             return True

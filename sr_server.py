@@ -15,7 +15,7 @@ logger = get_stdout_logger()
 def send_file(file_name, sr_sender):
     time.sleep(1)
     sr_sender.start_data_waiter()
-    for i in range(8):
+    for i in range(20):
         logger.log(logging.INFO, f'trying to put {i} ')
         sr_sender.insert_in_buffer(i)
 

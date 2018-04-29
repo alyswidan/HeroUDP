@@ -13,7 +13,7 @@ logger = get_stdout_logger()
 
 class SelectiveRepeatReceiver:
 
-    def __init__(self, window_size=4):
+    def __init__(self, window_size=9):
         self.cnt=0
         self.udt_receiver = InterruptableUDTReceiver(UDTReceiver())
         self.udt_listening_receiver = UDTReceiver()
@@ -37,7 +37,6 @@ class SelectiveRepeatReceiver:
 
         while not self.done_receiving:
             # this loop sometimes captures the ack from the first message
-            print('hhhhh')
             packet, sender_address = self.udt_receiver.receive()
             # if isinstance(packet, DataPacket):
             logger.log(logging.INFO, f'(sr_receiver) | {current_thread()}: received {packet.data} from {sender_address}')

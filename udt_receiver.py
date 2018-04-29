@@ -51,10 +51,8 @@ class InterruptableUDTReceiver:
 
 
     def receive(self):
-        print('hi')
         read, _w, errors = select.select([self._r_pipe, self.socket], [], [self.socket])
         if self.socket in read:
-            print('trying')
             return self.udt_receiver.receive()
         raise InterruptException
 
