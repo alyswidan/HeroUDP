@@ -3,7 +3,7 @@ from packet import DataPacket, AckPacket
 import logging
 from helpers import get_stdout_logger
 
-logger = get_stdout_logger()
+logger = get_stdout_logger('udt_sender','DEBUG')
 
 class UDTSender:
     def __init__(self, server_ip, server_port):
@@ -11,12 +11,12 @@ class UDTSender:
         self.receiver_address = (server_ip, server_port)
 
     def send_data(self, data_chunk, seq_number):
-        logger.log(logging.INFO, f'(udt_sender) : sent data with seq number {seq_number} to {self.receiver_address}')
+        logger.debug(f'sent data with seq number {seq_number} to {self.receiver_address}')
         packet = DataPacket(data_chunk, seq_number)
         self.socket.sendto(packet.get_raw(), self.receiver_address)
 
     def send_ack(self, seq_number):
-        logger.log(logging.INFO, f'(udt_sender) : sent an Ack with seq number {seq_number} to {self.receiver_address}')
+        logger.debug(f'sent an Ack with seq number {seq_number} to {self.receiver_address}')
         packet = AckPacket(seq_number)
         self.socket.sendto(packet.get_raw(), self.receiver_address)
 

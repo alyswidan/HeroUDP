@@ -5,7 +5,7 @@ from udt_sender import UDTSender
 import logging
 from helpers import get_stdout_logger
 
-logger = get_stdout_logger()
+logger = get_stdout_logger('sw_receiver')
 LOSS_PROB = 0.1
 
 class StopAndWaitReceiver:

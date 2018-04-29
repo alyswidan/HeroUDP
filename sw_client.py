@@ -9,7 +9,7 @@ from stop_and_wait_sender import StopAndWaitSender
 from lossy_decorator import *
 
 LOSS_PROB = 0.1
-logger = get_stdout_logger()
+logger = get_stdout_logger('sw_client')
 
 run_unique_id = uuid.uuid4().hex[0:6]
 (file_name, server_ip, server_port) = input('give me the file name, ip and port of the server:\n').split()

@@ -8,7 +8,7 @@ import logging
 
 
 
-logger = get_stdout_logger()
+logger = get_stdout_logger('server')
 BUFFER_SIZE = 508
 CHUNK_SIZE = 500
 WELCOMING_PORT = 20000

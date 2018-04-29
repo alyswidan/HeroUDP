@@ -10,7 +10,7 @@ from lossy_decorator import *
 CHUNK_SIZE = 500
 WELCOMING_PORT = 30000
 LOSS_PROB = 0.1
-logger = get_stdout_logger()
+logger = get_stdout_logger('sw_server')
 
 def send_file(file_name, sw_sender, client_id):
     # get the number of packets required to send the file

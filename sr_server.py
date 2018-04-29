@@ -10,17 +10,17 @@ from sr_sender import SelectiveRepeatSender
 from lossy_decorator import *
 CHUNK_SIZE = 500
 WELCOMING_PORT = 30000
-logger = get_stdout_logger()
+logger = get_stdout_logger('sr_server','DEBUG')
 
 def send_file(file_name, sr_sender):
-    time.sleep(1)
+    time.sleep(0.05)
     sr_sender.start_data_waiter()
-    for i in range(20):
-        logger.log(logging.INFO, f'trying to put {i} ')
+    for i in range(int(1e6)):
+        logger.debug(f'trying to put {i} ')
         sr_sender.insert_in_buffer(i)
 
     sr_sender.insert_in_buffer(bytes(0))
-    logger.log(logging.INFO, 'done putting data into buffer')
+    logger.debug( 'done putting data into buffer')
 
     sr_sender.close()
 
@@ -30,6 +30,7 @@ listening_receiver.listen(20000)
 
 while True:
     init_packet, client_address = listening_receiver.accept()
+    logger.debug(init_packet.data)
     client_thread = Thread(target=send_file, args=('',SelectiveRepeatSender(*client_address)))
     client_thread.daemon = True
     client_thread.start()

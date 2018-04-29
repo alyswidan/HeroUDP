@@ -6,7 +6,7 @@ from helpers import get_stdout_logger
 import logging
 import os
 import select
-logger = get_stdout_logger()
+logger = get_stdout_logger('udt_receiver','DEBUG')
 QUEUE_SIZE = 50
 BUFFER_SIZE = (CHUNK_SIZE + 8)*QUEUE_SIZE
 
@@ -27,10 +27,10 @@ class UDTReceiver:
         if len(raw_packet) == BUFFER_SIZE//QUEUE_SIZE:
 
             packet = DataPacket.from_raw(raw_packet)
-            logger.log(logging.INFO, f'(udt_receiver) ({current_thread()}) : received {packet.data} from {server_address}')
+            logger.debug( f'received {packet.data} from {server_address}')
         else:
             packet = AckPacket.from_raw(raw_packet)
-            logger.log(logging.INFO, f'(udt_receiver) ({current_thread()}) : received an ACk with seq num {packet.seq_number} from {server_address}')
+            logger.debug( f'received an ACk with seq num {packet.seq_number} from {server_address}')
 
         return packet, server_address
 

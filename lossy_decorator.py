@@ -4,7 +4,7 @@ from udt_sender import UDTSender
 import logging
 from helpers import get_stdout_logger
 
-logger = get_stdout_logger()
+logger = get_stdout_logger('lossy decorator')
 
 def get_lossy_udt_sender(loss_prob):
 

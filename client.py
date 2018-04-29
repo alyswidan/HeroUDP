@@ -8,7 +8,7 @@ from helpers import get_stdout_logger
 # from senders import UDTSender
 
 # TODO: Bug-> sometimes client doesnt run till the end
-logger = get_stdout_logger()
+logger = get_stdout_logger('client')
 BUFFER_SIZE = 508
 
 

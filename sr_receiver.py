@@ -8,17 +8,18 @@ from sr_sender import SelectiveRepeatSender
 from udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from udt_sender import UDTSender
 
-logger = get_stdout_logger()
+logger = get_stdout_logger('sr_receiver')
 
 
 class SelectiveRepeatReceiver:
 
-    def __init__(self, window_size=9):
+    def __init__(self, window_size=4, max_seq_num=-1):
         self.cnt=0
         self.udt_receiver = InterruptableUDTReceiver(UDTReceiver())
         self.udt_listening_receiver = UDTReceiver()
         self.current_window = deque([None for _ in range(window_size)])
         self.window_size = window_size
+        self.max_seq_num = max(2 * window_size, max_seq_num)
         self.base_seq_num = 0
         self.data_queue = deque()
         self.data_queue_cv = Condition()
@@ -39,22 +40,22 @@ class SelectiveRepeatReceiver:
             # this loop sometimes captures the ack from the first message
             packet, sender_address = self.udt_receiver.receive()
             # if isinstance(packet, DataPacket):
-            logger.log(logging.INFO, f'(sr_receiver) | {current_thread()}: received {packet.data} from {sender_address}')
+            logger.info(f'received {packet.data} from {sender_address}')
             udt_sender = UDTSender(*sender_address)
             udt_sender.send_ack(packet.seq_number)
-            logger.log(logging.INFO,f'(sr_receiver) : sent an Ack with seq number {packet.seq_number}'
+            logger.info(f'sent an Ack with seq number {packet.seq_number}'
                                             f'to {sender_address}')
             self.adjust_window(packet)
             # else:
             #     logger.log(logging.INFO, f'(sr_receiver) : received {packet.data} from {sender_address} not a data')
 
     def adjust_window(self, packet):
-        if packet.seq_number in range(self.base_seq_num, self.base_seq_num + self.window_size):
+        if packet.seq_number in [i%self.max_seq_num for i in range(self.base_seq_num, self.base_seq_num + self.window_size)]:
             self.current_window[packet.seq_number - self.base_seq_num] = packet
         else:
-            logger.log(logging.INFO, f'got {packet.seq_number} out of window')
+            logger.debug(f'got {packet.seq_number} out of window')
 
-        logger.log(logging.INFO, f'(sr_receiver) : window before adjusting = {[pkt.data if pkt is not None else None for pkt in self.current_window]} '
+        logger.debug( f'(sr_receiver) : window before adjusting = {[pkt.data if pkt is not None else None for pkt in self.current_window]} '
                                  f'| base={self.base_seq_num} ({self.cnt})')
         shifts = 0
         for i, pkt in enumerate(self.current_window):
@@ -69,9 +70,9 @@ class SelectiveRepeatReceiver:
             shifts += 1
 
         self.current_window.rotate(-shifts)
-        self.base_seq_num += shifts
-        logger.log(logging.INFO,
-                   f'(sr_receiver) : window after adjusting = {[pkt.data if pkt is not None else None for pkt in self.current_window]} '
+        self.base_seq_num = (self.base_seq_num + shifts) % self.max_seq_num
+        logger.debug(
+                   f'window after adjusting = {[pkt.data if pkt is not None else None for pkt in self.current_window]} '
                    f'| base={self.base_seq_num} ({self.cnt})')
         self.cnt+=1
 
@@ -80,7 +81,7 @@ class SelectiveRepeatReceiver:
         with self.data_queue_cv:
             self.data_queue_cv.wait_for(lambda : len(self.data_queue) > 0)
             pkt = self.data_queue.popleft()
-            logger.log(logging.INFO, f'delivering packet with data {pkt.data} to upper layer')
+            logger.info(f'delivering packet with data {pkt.data} to upper layer')
             return pkt
 
     @classmethod
@@ -103,7 +104,7 @@ class SelectiveRepeatReceiver:
             raise TypeError('non listening receiver cannot accept connections')
 
         init_packet, sender_address = self.udt_listening_receiver.receive()
-        logger.log(logging.INFO, f'(sr_receiver) | (listener) : received {init_packet.data} from {sender_address}')
+        logger.info( f'(listener) : received {init_packet.data} from {sender_address}')
         udt_sender = UDTSender(*sender_address)
         udt_sender.send_ack(init_packet.seq_number)
         self.adjust_window(init_packet)

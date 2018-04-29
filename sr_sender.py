@@ -8,13 +8,13 @@ from packet import DataPacket
 from udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from udt_sender import UDTSender
 
-logger = get_stdout_logger()
+logger = get_stdout_logger('sr_sender')#,'DEBUG')
 TIMEOUT = 0.1
 
 class SelectiveRepeatSender:
 
 
-    def __init__(self, receiver_ip, receiver_port, window_size=9, max_seq_num=-1, buffer_size = 5):
+    def __init__(self, receiver_ip, receiver_port, window_size=4, max_seq_num=-1, buffer_size = 5):
         """"
         I use deque's because using them as queues is faster than using lists as queues and
         they are thread safe
@@ -70,9 +70,6 @@ class SelectiveRepeatSender:
 
             if data_chunk is not None :
                 if self.add_to_window(data_chunk):
-                    logger.log(logging.INFO, f'sending {data_chunk} window is {self.current_window} '
-                                             f'| base={self.base_seq_num} ')
-
                     self.send_packet(self.get_next_seq_num())
 
             ack = self.get_ack()
@@ -80,9 +77,6 @@ class SelectiveRepeatSender:
             if ack is not None:
                 self.current_window[self.get_window_idx(ack.seq_number)].is_acked = True
                 self.adjust_window()
-
-
-
 
     def start_ack_waiter(self):
         ack_waiter = Thread(target=self.wait_for_ack)
@@ -92,7 +86,6 @@ class SelectiveRepeatSender:
     def wait_for_ack(self):
 
         while not self.done_sending:
-                logger.log(logging.INFO, f'{current_thread()} waiting for ack in sr sender')
 
                 try:
                     packet, sender_address = self.udt_receiver.receive()
@@ -100,40 +93,32 @@ class SelectiveRepeatSender:
                     continue
 
 
-
-                logger.log(logging.INFO,f'(sr_sender) | {current_thread()} received {packet.seq_number}')
-
                 try:
                     self.packet_timers[packet.seq_number].cancel()
                 except:
                     pass
 
                 self.insert_ack(packet)
-                logger.log(logging.INFO, f'(sr_sender) : received an ACk with seq num {packet.seq_number}'
-                                         f' from {sender_address}')
+                logger.info( f'received an ACk with seq num {packet.seq_number}'
+                             f' from {sender_address}')
 
     def timeout(self, seq_num):
-        logger.log(logging.INFO, f'{seq_num} timed out')
+        logger.info(f'{seq_num} timed out, scheduled for retransmition')
         self.send_packet(seq_num)
 
 
     def send_packet(self, seq_num):
         with self.sending_lock:
             data_chunk = self.current_window[self.get_window_idx(seq_num)].data_chunk
-            logger.log(logging.INFO, f'(sr_sender) : window hena = {self.current_window} '
-                                     f'| base={self.base_seq_num} ({seq_num})')
+
             self.udt_sender.send_data(data_chunk, seq_num)
             self.packet_timers[seq_num] = Timer(TIMEOUT, self.timeout, args=(seq_num, ))
             self.packet_timers[seq_num].start()
-            logger.log(logging.INFO,f'(sr_sender) : sent data with seq number {seq_num} '
-                                    f'to {(self.receiver_ip, self.receiver_port)}')
 
-            logger.log(logging.INFO, f'starting the wait for {seq_num}')
+            logger.info( f'starting the timer for {seq_num}')
 
     def add_to_window(self, data_chunk):
         if self.next_slot != self.window_size:
-            logger.log(logging.INFO, f'(sr_sender) : putting {data_chunk} into slot number {self.next_slot}'
-                                     f', base={self.base_seq_num}, deque len = {len(self.current_window)}')
             self.current_window[self.next_slot] = self.WindowEntry(data_chunk, False)
             self.next_slot += 1
             return True
@@ -141,8 +126,8 @@ class SelectiveRepeatSender:
 
     def adjust_window(self):
         shifts = 0
-        logger.log(logging.INFO, f'(sr_sender) : window before adjusting = {self.current_window} '
-                                 f'| base={self.base_seq_num} ({self.cnt})')
+        logger.debug( f'window before adjusting = {self.current_window} '
+                     f'| base={self.base_seq_num} ({self.cnt})')
 
         for i, entry in enumerate(self.current_window):
             if not  entry.is_acked:
@@ -152,24 +137,24 @@ class SelectiveRepeatSender:
 
 
         self.current_window.rotate(-shifts)
-        self.base_seq_num += shifts
-
-        logger.log(logging.INFO, f'nextslot={self.next_slot}')
-        self.next_slot = self.peek_next_seq_num() - self.base_seq_num
-        logger.log(logging.INFO, f'shifts = {shifts},nextslot={self.next_slot}')
+        self.base_seq_num = (self.base_seq_num + shifts) % self.max_seq_num
 
 
-        logger.log(logging.INFO, f'(sr_sender) : window after adjusting = {self.current_window} '
-                                 f'| base={self.base_seq_num} ({self.cnt})')
+        self.next_slot -= shifts
+
+
+
+        logger.debug( f'window after adjusting = {self.current_window} '
+                     f'| base={self.base_seq_num} ({self.cnt})')
         self.cnt += 1
 
         with self.closing_cv:
-
             if sum([0 if entry.data_chunk is None else 1 for entry in self.current_window])==0:
                 self.closing_cv.notify()
 
 
     def get_window_idx(self, seq_num):
+        seq_num = seq_num if seq_num >= self.base_seq_num else seq_num + self.max_seq_num
         return seq_num - self.base_seq_num
 
     def insert_ack(self, ack):
@@ -218,7 +203,7 @@ class SelectiveRepeatSender:
             self.buffer_cond_var.wait_for(lambda : len(self.buffer) < self.buffer_size)
 
             self.buffer.append(data_chunk)
-            logger.log(logging.INFO, f'put {data_chunk} in buffer')
+            logger.debug( f'putting {data_chunk} in buffer')
 
     def get_from_buffer(self):
         """
@@ -230,7 +215,7 @@ class SelectiveRepeatSender:
             try:
                 if self.next_slot != self.window_size:
                     data_chunk = self.buffer.popleft()
-                    logger.log(logging.INFO, f'got {data_chunk} from buffer')
+                    logger.debug( f'got {data_chunk} from buffer')
                     if len(data_chunk) == 0:
                         self.buffer_consumed = True
                         data_chunk = None
@@ -243,7 +228,7 @@ class SelectiveRepeatSender:
         return data_chunk
 
     def close(self):
-        logger.log(logging.INFO, '(sr_sender) : attempting to close sender')
+        logger.debug( 'attempting to close sender')
         with self.closing_cv:
             self.closing_cv.wait_for(lambda : self.buffer_consumed)
             self.terminate_waiters()
@@ -254,7 +239,7 @@ class SelectiveRepeatSender:
         self.done_sending = True
         self.get_from_buffer() # notify the producer
         self.udt_receiver.interrupt()
-        logger.log(logging.INFO, '(sr_sender) : closed the sender successfully')
+        logger.info( '(sr_sender) : closed the sender successfully')
 
 
 
