@@ -40,7 +40,7 @@ class SelectiveRepeatReceiver:
         while not self.done_receiving:
             packet, sender_address = self.udt_receiver.receive()
             logger.info(f'received {packet.data} from {sender_address}')
-            udt_sender = LossyUDTSender(UDTSender(*sender_address), self.loss_prob)
+            udt_sender = LossyUDTSender(UDTSender.from_udt_receiver(self.udt_receiver,*sender_address), self.loss_prob)
             udt_sender.send_ack(packet.seq_number)
             logger.info(f'sent an Ack with seq number {packet.seq_number}'
                                             f'to {sender_address}')

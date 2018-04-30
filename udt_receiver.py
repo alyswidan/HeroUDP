@@ -59,6 +59,18 @@ class InterruptableUDTReceiver:
     def interrupt(self):
         os.write(self._w_pipe, "I".encode())
 
+    def __getattribute__(self, attr):
+        try:
+            found_attr = super(InterruptableUDTReceiver, self).__getattribute__(attr)
+        except AttributeError:
+            pass
+        else:
+            return found_attr
+
+        found_attr = self.udt_sender.__getattribute__(attr)
+
+        return found_attr
+
 
 class InterruptException(Exception):
     pass

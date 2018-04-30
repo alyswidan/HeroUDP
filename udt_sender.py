@@ -11,6 +11,12 @@ class UDTSender:
         self.socket = socket(AF_INET, SOCK_DGRAM)
         self.receiver_address = (server_ip, server_port)
 
+    @classmethod
+    def from_udt_receiver(cls, udt_receiver, server_ip, server_port):
+        sender = cls(server_ip, server_port)
+        sender.socket = udt_receiver.socket
+        return sender
+
     def send_data(self, data_chunk, seq_number):
         logger.debug(f'sent data with seq number {seq_number} to {self.receiver_address}')
         packet = DataPacket(data_chunk, seq_number)
