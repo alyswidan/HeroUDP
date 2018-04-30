@@ -55,8 +55,9 @@ class SelectiveRepeatReceiver:
         else:
             logger.debug(f'got {packet.seq_number} out of window')
 
-        logger.debug( f'(sr_receiver) : window before adjusting = {[pkt.data if pkt is not None else None for pkt in self.current_window]} '
-                                 f'| base={self.base_seq_num} ({self.cnt})')
+        logger.debug(f'(sr_receiver) : window before adjusting '
+                     f'= {[pkt.data if pkt is not None else None for pkt in self.current_window]} '
+                     f'| base={self.base_seq_num} ({self.cnt})')
         shifts = 0
         for i, pkt in enumerate(self.current_window):
             if pkt is None:

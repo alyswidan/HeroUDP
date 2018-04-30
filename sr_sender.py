@@ -47,6 +47,7 @@ class SelectiveRepeatSender:
 
         # the buffer used by the server to pass data chunks and a condition variable to block
         # the thread passing chunks when the buffer is full
+
         self.buffer = deque()
         self.buffer_cond_var = Condition() # used by the chunk sender to wait for a slot in the queue
         self.window_size = window_size

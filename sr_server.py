@@ -13,7 +13,7 @@ WELCOMING_PORT = 30000
 logger = get_stdout_logger('sr_server','DEBUG')
 
 def send_file(file_name, sr_sender):
-    time.sleep(1)
+    time.sleep(1) # this is a hack
     sr_sender.start_data_waiter()
     for i in range(1000000):
         logger.debug(f'trying to put {i} ')
