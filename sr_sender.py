@@ -1,3 +1,4 @@
+import functools
 from collections import deque
 from collections import namedtuple
 from threading import Semaphore, Lock, current_thread, Condition, Timer, Thread
@@ -8,8 +9,24 @@ from packet import DataPacket
 from udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from udt_sender import UDTSender
 
-logger = get_stdout_logger('sr_sender')#,'DEBUG')
+logger = get_stdout_logger('sr_sender','DEBUG')
 TIMEOUT = 0.1
+
+def synchronized(wrapped):
+    lock = Lock()
+    print(lock, id(lock))
+    @functools.wraps(wrapped)
+    def _wrap(*args, **kwargs):
+        with lock:
+            print ("Calling '%s' with Lock %s from thread %s [%s]"
+                   % (wrapped.__name__, id(lock),
+                   current_thread().name, time.time()))
+            result = wrapped(*args, **kwargs)
+            print ("Done '%s' with Lock %s from thread %s [%s]"
+                   % (wrapped.__name__, id(lock),
+                   current_thread().name, time.time()))
+            return result
+    return _wrap
 
 class SelectiveRepeatSender:
 
@@ -74,7 +91,8 @@ class SelectiveRepeatSender:
 
             ack = self.get_ack()
 
-            if ack is not None:
+            if ack is not None and self.is_in_window(ack.seq_number):
+                logger.debug(f'trying to set {ack.seq_number} as acked {self.current_window} | base={self.base_seq_num}')
                 self.current_window[self.get_window_idx(ack.seq_number)].is_acked = True
                 self.adjust_window()
 
@@ -96,7 +114,7 @@ class SelectiveRepeatSender:
                 try:
                     self.packet_timers[packet.seq_number].cancel()
                 except:
-                    pass
+                    logger.error(f'timer with for packet {packet.seq_number} not in map')
 
                 self.insert_ack(packet)
                 logger.info( f'received an ACk with seq num {packet.seq_number}'
@@ -104,18 +122,25 @@ class SelectiveRepeatSender:
 
     def timeout(self, seq_num):
         logger.info(f'{seq_num} timed out, scheduled for retransmition')
-        self.send_packet(seq_num)
+        self.retransmit(seq_num)
 
+    def retransmit(self, seq_num):
+        if self.is_in_window(seq_num):
+            logger.debug(f'retransmitting {seq_num}')
+            self.send_packet(seq_num)
 
+    @synchronized
     def send_packet(self, seq_num):
-        with self.sending_lock:
-            data_chunk = self.current_window[self.get_window_idx(seq_num)].data_chunk
 
-            self.udt_sender.send_data(data_chunk, seq_num)
-            self.packet_timers[seq_num] = Timer(TIMEOUT, self.timeout, args=(seq_num, ))
-            self.packet_timers[seq_num].start()
+        logger.debug('entering send_packet')
+        data_chunk = self.current_window[self.get_window_idx(seq_num)].data_chunk
 
-            logger.info( f'starting the timer for {seq_num}')
+        self.udt_sender.send_data(data_chunk, seq_num)
+        self.packet_timers[seq_num] = Timer(TIMEOUT, self.timeout, args=(seq_num, ))
+        self.packet_timers[seq_num].start()
+
+        logger.info( f'starting the timer for {seq_num}')
+        logger.debug('exiting send_packet')
 
     def add_to_window(self, data_chunk):
         if self.next_slot != self.window_size:
@@ -127,7 +152,7 @@ class SelectiveRepeatSender:
     def adjust_window(self):
         shifts = 0
         logger.debug( f'window before adjusting = {self.current_window} '
-                     f'| base={self.base_seq_num} ({self.cnt})')
+                      f'| base={self.base_seq_num} ({self.cnt})')
 
         for i, entry in enumerate(self.current_window):
             if not  entry.is_acked:
@@ -250,6 +275,11 @@ class SelectiveRepeatSender:
         except:
             pass
         return seq_num
+
+    def is_in_window(self, seq_num):
+        return seq_num in [i % self.max_seq_num for i in range(self.base_seq_num, self.base_seq_num + self.window_size)]
+
+
 
     class WindowEntry:
         def __init__(self, data_chunk, is_acked):

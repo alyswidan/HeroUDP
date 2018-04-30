@@ -50,7 +50,7 @@ class SelectiveRepeatReceiver:
             #     logger.log(logging.INFO, f'(sr_receiver) : received {packet.data} from {sender_address} not a data')
 
     def adjust_window(self, packet):
-        if packet.seq_number in [i%self.max_seq_num for i in range(self.base_seq_num, self.base_seq_num + self.window_size)]:
+        if self.is_in_window(packet.seq_number):
             self.current_window[packet.seq_number - self.base_seq_num] = packet
         else:
             logger.debug(f'got {packet.seq_number} out of window')
@@ -85,8 +85,8 @@ class SelectiveRepeatReceiver:
             return pkt
 
     @classmethod
-    def from_sender(cls, sr_sender):
-        sr_receiver = cls()
+    def from_sender(cls, sr_sender, window_size=4, max_seq_num=-1):
+        sr_receiver = cls(window_size=window_size, max_seq_num=max_seq_num)
         sr_receiver.udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(sr_sender.udt_sender))
         return sr_receiver
 
@@ -115,3 +115,7 @@ class SelectiveRepeatReceiver:
             self.done_receiving = True
         else:
             self.waiting_to_close = True
+
+
+    def is_in_window(self, seq_num):
+        return seq_num in [i % self.max_seq_num for i in range(self.base_seq_num, self.base_seq_num + self.window_size)]
