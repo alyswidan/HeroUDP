@@ -130,7 +130,7 @@ class SelectiveRepeatSender:
             logger.debug(f'retransmitting {seq_num}')
             self.send_packet(seq_num)
 
-    @synchronized
+    # @synchronized
     def send_packet(self, seq_num):
 
         logger.debug('entering send_packet')

@@ -15,7 +15,7 @@ logger = get_stdout_logger('sr_server','DEBUG')
 def send_file(file_name, sr_sender):
     time.sleep(1) # this is a hack
     sr_sender.start_data_waiter()
-    for i in range(20):
+    for i in range(1000):
         logger.debug(f'trying to put {i} ')
         sr_sender.insert_in_buffer(i)
 
@@ -31,7 +31,7 @@ listening_receiver.listen(20000)
 while True:
     init_packet, client_address = listening_receiver.accept()
     logger.debug(init_packet.data)
-    client_thread = Thread(target=send_file, args=('',SelectiveRepeatSender(*client_address,max_seq_num=1000, loss_prob=0.5)))
+    client_thread = Thread(target=send_file, args=('',SelectiveRepeatSender(*client_address,window_size=15,loss_prob=0.5)))
     client_thread.daemon = True
     client_thread.start()
     client_thread.join()

@@ -48,7 +48,14 @@ class SelectiveRepeatReceiver:
 
     def adjust_window(self, packet):
         if self.is_in_window(packet.seq_number):
-            self.current_window[packet.seq_number - self.base_seq_num] = packet
+            try:
+                self.current_window[self.get_window_idx(packet.seq_number)] = packet
+            except IndexError:
+                wind = [x.data if x is not None else None for x in self.current_window]
+                logger.error(f'{self.get_window_idx(packet.seq_number)} is out of {wind}|'
+                             f' {self.is_in_window(packet.seq_number)} | base={self.base_seq_num}' )
+            else:
+                logger.error('error tany')
         else:
             logger.debug(f'got {packet.seq_number} out of window')
 
@@ -117,7 +124,8 @@ class SelectiveRepeatReceiver:
             while len(self.data_queue) > 0:
                 self.closing_cv.wait()
 
-            time.sleep(0.5) # wait for half a millisecond in case this is just a pause due to delays
+            time.sleep(2) # wait for half a millisecond in case this is just a pause due to delays
+            logger.debug('woke up')
             if len(self.data_queue) > 0:
                 self.close()
 
@@ -128,3 +136,7 @@ class SelectiveRepeatReceiver:
 
     def is_in_window(self, seq_num):
         return seq_num in [i % self.max_seq_num for i in range(self.base_seq_num, self.base_seq_num + self.window_size)]
+
+    def get_window_idx(self, seq_num):
+        seq_num = seq_num if seq_num >= self.base_seq_num else seq_num + self.max_seq_num
+        return seq_num - self.base_seq_num
