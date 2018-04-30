@@ -6,14 +6,14 @@ from helpers import get_stdout_logger
 from packet import AckPacket, DataPacket
 from sr_sender import SelectiveRepeatSender
 from udt_receiver import UDTReceiver, InterruptableUDTReceiver
-from udt_sender import UDTSender
+from udt_sender import UDTSender, LossyUDTSender
 
-logger = get_stdout_logger('sr_receiver')
+logger = get_stdout_logger('sr_receiver', 'DEBUG')
 
 
 class SelectiveRepeatReceiver:
 
-    def __init__(self, window_size=4, max_seq_num=-1):
+    def __init__(self, window_size=4, max_seq_num=-1, loss_prob=0):
         self.cnt=0
         self.udt_receiver = InterruptableUDTReceiver(UDTReceiver())
         self.udt_listening_receiver = UDTReceiver()
@@ -26,6 +26,8 @@ class SelectiveRepeatReceiver:
         self.done_receiving = False
         self.waiting_to_close = False
         self.lock = Lock()
+        self.loss_prob = loss_prob
+        self.closing_cv = Condition()
 
 
     def start_data_waiter(self):
@@ -33,21 +35,16 @@ class SelectiveRepeatReceiver:
         t.daemon = True
         t.start()
 
-
     def wait_for_data(self):
 
         while not self.done_receiving:
-            # this loop sometimes captures the ack from the first message
             packet, sender_address = self.udt_receiver.receive()
-            # if isinstance(packet, DataPacket):
             logger.info(f'received {packet.data} from {sender_address}')
-            udt_sender = UDTSender(*sender_address)
+            udt_sender = LossyUDTSender(UDTSender(*sender_address), self.loss_prob)
             udt_sender.send_ack(packet.seq_number)
             logger.info(f'sent an Ack with seq number {packet.seq_number}'
                                             f'to {sender_address}')
             self.adjust_window(packet)
-            # else:
-            #     logger.log(logging.INFO, f'(sr_receiver) : received {packet.data} from {sender_address} not a data')
 
     def adjust_window(self, packet):
         if self.is_in_window(packet.seq_number):
@@ -76,6 +73,9 @@ class SelectiveRepeatReceiver:
                    f'window after adjusting = {[pkt.data if pkt is not None else None for pkt in self.current_window]} '
                    f'| base={self.base_seq_num} ({self.cnt})')
         self.cnt+=1
+        with self.data_queue_cv:
+            self.data_queue_cv.notify()
+
 
     def get_packet(self):
 
@@ -86,8 +86,8 @@ class SelectiveRepeatReceiver:
             return pkt
 
     @classmethod
-    def from_sender(cls, sr_sender, window_size=4, max_seq_num=-1):
-        sr_receiver = cls(window_size=window_size, max_seq_num=max_seq_num)
+    def from_sender(cls, sr_sender, window_size=4, max_seq_num=-1, loss_prob=0):
+        sr_receiver = cls(window_size=window_size, max_seq_num=max_seq_num,loss_prob=loss_prob)
         sr_receiver.udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(sr_sender.udt_sender))
         return sr_receiver
 
@@ -112,10 +112,18 @@ class SelectiveRepeatReceiver:
         return init_packet, sender_address
 
     def close(self):
-        if len(self.data_queue) == 0:
+
+        with self.closing_cv:
+            while len(self.data_queue) > 0:
+                self.closing_cv.wait()
+
+            time.sleep(0.5) # wait for half a millisecond in case this is just a pause due to delays
+            if len(self.data_queue) > 0:
+                self.close()
+
             self.done_receiving = True
-        else:
-            self.waiting_to_close = True
+            logger.debug('closing client')
+
 
 
     def is_in_window(self, seq_num):

@@ -21,3 +21,21 @@ def get_stdout_logger(name='root',level='INFO'):
 
     return stdout_logger
 get_stdout_logger.is_initialized = False
+
+
+# def delegate_calls(delegate_to):
+#     def wrapper(cls):
+#         def _get_attr(self, attr):
+#             try:
+#                 found_attr = super(cls, self).__getattribute__(attr)
+#             except AttributeError:
+#                 pass
+#             else:
+#                 return found_attr
+#
+#             found_attr = .__getattribute__(attr)
+#
+#             return found_attr
+#         setattr(cls, '__getattribute__', _get_attr)
+#         return cls
+#     return wrapper

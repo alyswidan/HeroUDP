@@ -7,7 +7,7 @@ import logging
 from helpers import get_stdout_logger
 from packet import DataPacket
 from udt_receiver import UDTReceiver, InterruptableUDTReceiver
-from udt_sender import UDTSender
+from udt_sender import UDTSender, LossyUDTSender
 
 logger = get_stdout_logger('sr_sender','DEBUG')
 TIMEOUT = 0.1
@@ -31,7 +31,7 @@ def synchronized(wrapped):
 class SelectiveRepeatSender:
 
 
-    def __init__(self, receiver_ip, receiver_port, window_size=4, max_seq_num=-1, buffer_size = 5):
+    def __init__(self, receiver_ip, receiver_port, window_size=4, max_seq_num=-1, buffer_size = 5, loss_prob=0):
         """"
         I use deque's because using them as queues is faster than using lists as queues and
         they are thread safe
@@ -67,7 +67,7 @@ class SelectiveRepeatSender:
         self.done_sending = False
         self.waiting_to_close = False
         self.closing_cv = Condition()
-        self.udt_sender = UDTSender(receiver_ip, receiver_port)
+        self.udt_sender = LossyUDTSender(UDTSender(receiver_ip, receiver_port), loss_prob)
         self.udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(self.udt_sender))
 
 

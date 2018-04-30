@@ -2,6 +2,7 @@ from socket import socket,AF_INET, SOCK_DGRAM
 from packet import DataPacket, AckPacket
 import logging
 from helpers import get_stdout_logger
+import numpy as np
 
 logger = get_stdout_logger('udt_sender','DEBUG')
 
@@ -23,3 +24,43 @@ class UDTSender:
     def close(self):
         logger.log(logging.INFO, 'closing socket')
         self.socket.close()
+
+
+
+class LossyUDTSender:
+    """
+    This is udt sender that losses packets with probability loss_prob
+    """
+    def __init__(self,udt_sender, loss_prob = 0.1):
+        self.udt_sender = udt_sender
+        self.loss_prob = loss_prob
+
+    def send_data(self, data_chunk, seq_number):
+        if self._get_decision() == 'sent':
+            self.udt_sender.send_data(data_chunk, seq_number)
+        else:
+            logger.info(f'dropping data packet {seq_number}')
+
+
+    def send_ack(self, seq_number):
+        if self._get_decision() == 'sent':
+            self.udt_sender.send_ack(seq_number)
+        else:
+            logger.info(f'dropping ack {seq_number}')
+
+
+    def _get_decision(self):
+        return np.random.choice(['lost', 'sent'], p=[self.loss_prob, 1 - self.loss_prob])
+
+
+    def __getattribute__(self, attr):
+        try:
+            found_attr = super(LossyUDTSender, self).__getattribute__(attr)
+        except AttributeError:
+            pass
+        else:
+            return found_attr
+
+        found_attr = self.udt_sender.__getattribute__(attr)
+
+        return found_attr
