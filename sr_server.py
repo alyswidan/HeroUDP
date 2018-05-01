@@ -19,7 +19,9 @@ def send_file(file_name, sr_sender):
     bytes_in_file = os.stat(file_name).st_size
     number_of_packets = bytes_in_file // CHUNK_SIZE
     number_of_packets += 1 if number_of_packets % CHUNK_SIZE != 0 else 0
+    sr_sender.insert_in_buffer(str(uuid.uuid4().hex)[0:6])
     sr_sender.insert_in_buffer(number_of_packets)
+
     with open(file_name, 'rb') as file:
         for i in range(number_of_packets):
             data_chunk = file.read(CHUNK_SIZE)
@@ -41,7 +43,5 @@ while True:
     client_thread = Thread(target=send_file, args=('text_test',SelectiveRepeatSender(*client_address,window_size=15,loss_prob=0.2)))
     client_thread.daemon = True
     client_thread.start()
-    client_thread.join()
-    break
 
 
