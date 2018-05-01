@@ -7,7 +7,7 @@ from sr_sender import SelectiveRepeatSender
 
 sr_sender = SelectiveRepeatSender('127.0.0.1', 20000)
 sr_sender.start_data_waiter()
-sr_sender.insert_in_buffer('text_test')
+sr_sender.insert_in_buffer('medium_pdf_test')
 sr_sender.insert_in_buffer(bytes(0))
 sr_sender.close()
 sr_receiver = SelectiveRepeatReceiver.from_sender(sr_sender,window_size=15, loss_prob=0.2)

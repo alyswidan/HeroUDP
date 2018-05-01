@@ -40,7 +40,7 @@ listening_receiver.listen(20000)
 while True:
     init_packet, client_address = listening_receiver.accept()
     logger.debug(init_packet.data)
-    client_thread = Thread(target=send_file, args=('text_test',SelectiveRepeatSender(*client_address,window_size=15,loss_prob=0.2)))
+    client_thread = Thread(target=send_file, args=(str(init_packet.data, 'ascii'),SelectiveRepeatSender(*client_address,window_size=15,loss_prob=0.2)))
     client_thread.daemon = True
     client_thread.start()
 
