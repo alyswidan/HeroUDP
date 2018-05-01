@@ -1,8 +1,9 @@
+import logging
+
 import numpy as np
 
-from udt_sender import UDTSender
-import logging
 from helpers import get_stdout_logger
+from senders.udt_sender import UDTSender
 
 logger = get_stdout_logger('lossy decorator')
 

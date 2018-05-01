@@ -1,12 +1,11 @@
-from threading import Thread
-from socket import *
-from helpers import get_stdout_logger
-import logging
 import os
 import uuid
+from threading import Thread
 
-from stop_and_wait_receiver import StopAndWaitReceiver
+from helpers import get_stdout_logger
 from lossy_decorator import *
+from receivers.stop_and_wait_receiver import StopAndWaitReceiver
+
 CHUNK_SIZE = 500
 WELCOMING_PORT = 30000
 LOSS_PROB = 0.1

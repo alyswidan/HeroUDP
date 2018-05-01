@@ -1,8 +1,10 @@
-from socket import socket,AF_INET, SOCK_DGRAM
-from packet import DataPacket, AckPacket
 import logging
-from helpers import get_stdout_logger
+from socket import socket, AF_INET, SOCK_DGRAM
+
 import numpy as np
+
+from helpers import get_stdout_logger
+from models.packet import DataPacket, AckPacket
 
 logger = get_stdout_logger('udt_sender','DEBUG')
 

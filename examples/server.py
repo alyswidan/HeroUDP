@@ -1,12 +1,10 @@
+import logging
+import os
 from socket import *
+from threading import Thread
 
 from helpers import get_stdout_logger
-from packet import *
-from threading import Thread
-import os
-import logging
-
-
+from models.packet import *
 
 logger = get_stdout_logger('server')
 BUFFER_SIZE = 508

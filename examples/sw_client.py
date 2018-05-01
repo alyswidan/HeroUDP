@@ -1,12 +1,10 @@
 
-from helpers import get_stdout_logger
-import logging
 import uuid
 
-from packet import DataPacket
-from stop_and_wait_receiver import StopAndWaitReceiver
-from stop_and_wait_sender import StopAndWaitSender
+from helpers import get_stdout_logger
 from lossy_decorator import *
+from receivers.stop_and_wait_receiver import StopAndWaitReceiver
+from senders.stop_and_wait_sender import StopAndWaitSender
 
 LOSS_PROB = 0.1
 logger = get_stdout_logger('sw_client')

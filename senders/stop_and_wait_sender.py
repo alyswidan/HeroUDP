@@ -1,10 +1,10 @@
+import logging
 from threading import Condition, Timer
 
-from packet import DataPacket
-from udt_receiver import UDTReceiver
-from udt_sender import UDTSender
-import logging
 from helpers import get_stdout_logger
+from models.packet import DataPacket
+from receivers.udt_receiver import UDTReceiver
+from senders.udt_sender import UDTSender
 
 logger = get_stdout_logger('sw_sender')
 TIMEOUT = 0.1

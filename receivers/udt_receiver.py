@@ -1,11 +1,11 @@
 
-from socket import *
-from threading import current_thread
-from packet import DataPacket, AckPacket,CHUNK_SIZE
-from helpers import get_stdout_logger
-import logging
 import os
 import select
+from socket import *
+
+from helpers import get_stdout_logger
+from models.packet import DataPacket, AckPacket, CHUNK_SIZE
+
 logger = get_stdout_logger('udt_receiver','DEBUG')
 QUEUE_SIZE = 50
 BUFFER_SIZE = (CHUNK_SIZE + 8)*QUEUE_SIZE

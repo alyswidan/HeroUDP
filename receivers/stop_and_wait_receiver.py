@@ -1,9 +1,9 @@
-from lossy_decorator import make_lossy_sender, get_lossy_udt_sender
-from stop_and_wait_sender import StopAndWaitSender
-from udt_receiver import UDTReceiver
-from udt_sender import UDTSender
 import logging
+
 from helpers import get_stdout_logger
+from lossy_decorator import get_lossy_udt_sender
+from receivers.udt_receiver import UDTReceiver
+from senders.stop_and_wait_sender import StopAndWaitSender
 
 logger = get_stdout_logger('sw_receiver')
 LOSS_PROB = 0.1
