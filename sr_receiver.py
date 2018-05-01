@@ -107,7 +107,11 @@ class SelectiveRepeatReceiver:
         self.udt_listening_receiver.bind(port)
         self.is_listening = True
 
-    def accept(self):
+    def accept(self, callback, **sender_args):
+        def extended_callback(init_packet, sr_sender):
+            time.sleep(1)
+            callback(init_packet, sr_sender)
+
         if not self.is_listening:
             raise TypeError('non listening receiver cannot accept connections')
 
@@ -116,7 +120,12 @@ class SelectiveRepeatReceiver:
         udt_sender = UDTSender(*sender_address)
         udt_sender.send_ack(init_packet.seq_number)
         self.adjust_window(init_packet)
-        return init_packet, sender_address
+
+        client_thread = Thread(target=extended_callback, args=(init_packet, SelectiveRepeatSender(*sender_address, **sender_args)))
+        client_thread.daemon = True
+        client_thread.start()
+
+        return client_thread
 
     def close(self):
 

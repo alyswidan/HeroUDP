@@ -12,8 +12,8 @@ CHUNK_SIZE = 500
 WELCOMING_PORT = 30000
 logger = get_stdout_logger('sr_server','DEBUG')
 
-def send_file(file_name, sr_sender):
-    time.sleep(1) # this is a hack
+def send_file(init_packet, sr_sender):
+    file_name = str(init_packet.data, 'ascii')
     sr_sender.start_data_waiter()
 
     bytes_in_file = os.stat(file_name).st_size
@@ -38,10 +38,4 @@ listening_receiver = SelectiveRepeatReceiver()
 listening_receiver.listen(20000)
 
 while True:
-    init_packet, client_address = listening_receiver.accept()
-    logger.debug(init_packet.data)
-    client_thread = Thread(target=send_file, args=(str(init_packet.data, 'ascii'),SelectiveRepeatSender(*client_address,window_size=15,loss_prob=0.2)))
-    client_thread.daemon = True
-    client_thread.start()
-
-
+    client_address = listening_receiver.accept(send_file, window_size=15, loss_prob=0.2)
