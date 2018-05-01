@@ -124,7 +124,7 @@ class SelectiveRepeatReceiver:
             while len(self.data_queue) > 0:
                 self.closing_cv.wait()
 
-            time.sleep(2) # wait for half a millisecond in case this is just a pause due to delays
+            time.sleep(5) # wait for half a millisecond in case this is just a pause due to delays
             logger.debug('woke up')
             if len(self.data_queue) > 0:
                 self.close()

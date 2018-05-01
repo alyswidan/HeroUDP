@@ -7,14 +7,17 @@ from sr_sender import SelectiveRepeatSender
 
 sr_sender = SelectiveRepeatSender('127.0.0.1', 20000)
 sr_sender.start_data_waiter()
-sr_sender.insert_in_buffer('hi')
+sr_sender.insert_in_buffer('text_test')
 sr_sender.insert_in_buffer(bytes(0))
 sr_sender.close()
-sr_receiver = SelectiveRepeatReceiver.from_sender(sr_sender,window_size=15,loss_prob=0.5)
+sr_receiver = SelectiveRepeatReceiver.from_sender(sr_sender,window_size=15, loss_prob=0.2)
 sr_receiver.start_data_waiter()
-a = []
-for _ in range(1000):
-    a.append(sr_receiver.get_packet())
-print([item.data for item in  a])
-# sr_receiver.close()
-time.sleep(5)
+first_pkt = sr_receiver.get_packet()
+number_of_packets = int(first_pkt.data)
+
+with open(f'text_test_client', 'wb+') as file:
+    for i in range(number_of_packets):
+        file.write(sr_receiver.get_packet().data)
+
+
+sr_receiver.close()
