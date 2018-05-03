@@ -5,7 +5,7 @@ from helpers.logger_utils import get_stdout_logger
 from receivers.sr_receiver import SelectiveRepeatReceiver
 
 
-def start_sr_server(welcoming_port, window_size=15, loss_prob=0.2):
+def startserver(welcoming_port, window_size=15, max_seq_num=-1, loss_prob=0.2):
 
     CHUNK_SIZE = 500
     logger = get_stdout_logger('sr_server','DEBUG')
@@ -36,4 +36,5 @@ def start_sr_server(welcoming_port, window_size=15, loss_prob=0.2):
     listening_receiver.listen(welcoming_port)
 
     while True:
+        logger.info(f'server listening on port {welcoming_port}')
         client_thread = listening_receiver.accept(send_file, window_size=15, loss_prob=0.2)

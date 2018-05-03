@@ -3,7 +3,7 @@ import time
 from collections import deque
 from threading import Lock, current_thread, Condition, Timer, Thread
 
-from helpers import get_stdout_logger
+from helpers.logger_utils import get_stdout_logger
 from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from senders.udt_sender import UDTSender, LossyUDTSender
 

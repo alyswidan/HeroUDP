@@ -1,7 +1,7 @@
 
 import uuid
 
-from helpers import get_stdout_logger
+from helpers.logger_utils import get_stdout_logger
 from lossy_decorator import *
 from receivers.stop_and_wait_receiver import StopAndWaitReceiver
 from senders.stop_and_wait_sender import StopAndWaitSender

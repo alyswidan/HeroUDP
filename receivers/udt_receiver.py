@@ -3,7 +3,7 @@ import os
 import select
 from socket import *
 
-from helpers import get_stdout_logger
+from helpers.logger_utils import get_stdout_logger
 from models.packet import DataPacket, AckPacket, CHUNK_SIZE
 
 logger = get_stdout_logger('udt_receiver','DEBUG')

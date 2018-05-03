@@ -2,9 +2,9 @@ import time
 from collections import deque
 from threading import Lock, Condition, Thread
 
-from udt_sender import UDTSender, LossyUDTSender
+from senders.udt_sender import UDTSender, LossyUDTSender
 
-from helpers import get_stdout_logger
+from helpers.logger_utils import get_stdout_logger
 from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from senders.sr_sender import SelectiveRepeatSender
 

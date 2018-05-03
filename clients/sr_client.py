@@ -1,7 +1,7 @@
 from receivers.sr_receiver import SelectiveRepeatReceiver
 from senders.sr_sender import SelectiveRepeatSender
 
-def start_sr_client(server_ip, server_port, file_name, window_size=15, loss_prob=0.2):
+def start_client(server_ip, server_port, file_name, window_size=15, max_seq_num=-1, loss_prob=0.2):
     sr_sender = SelectiveRepeatSender(server_ip, server_port)
     sr_sender.start_data_waiter()
     sr_sender.insert_in_buffer(file_name)

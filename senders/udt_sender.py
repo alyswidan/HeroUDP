@@ -3,7 +3,7 @@ from socket import socket, AF_INET, SOCK_DGRAM
 
 import numpy as np
 
-from helpers import get_stdout_logger
+from helpers.logger_utils import get_stdout_logger
 from models.packet import DataPacket, AckPacket
 
 logger = get_stdout_logger('udt_sender','DEBUG')
