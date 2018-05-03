@@ -246,7 +246,6 @@ class SelectiveRepeatSender:
 
             self.buffer_cond_var.notify() # tell the producer that a slot is available
 
-
         return data_chunk
 
     def close(self):
@@ -255,14 +254,9 @@ class SelectiveRepeatSender:
             self.closing_cv.wait_for(lambda : self.buffer_consumed)
             self.terminate_waiters()
 
-
     def terminate_waiters(self):
         # self.udt_receiver.close()
         self.done_sending = True
         self.get_from_buffer() # notify the producer
         self.udt_receiver.interrupt()
         logger.info( '(sr_sender) : closed the sender successfully')
-
-    def is_in_window(self, seq_num):
-        return seq_num in [i % self.max_seq_num for i in range(self.base_seq_num, self.base_seq_num + self.window_size)]
-
