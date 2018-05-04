@@ -32,7 +32,7 @@ if args.host_type == 'client':
                            max_seq_num=args.max_seq_num, loss_prob=args.loss_prob)
 
 elif args.host_type == 'server':
-    sr_server.startserver(welcoming_port=args.port, window_size=args.window,
-                          loss_prob=args.loss_prob, max_seq_num=args.max_seq_num)
+    sr_server.start_server(welcoming_port=args.port, window_size=args.window,
+                           loss_prob=args.loss_prob, max_seq_num=args.max_seq_num)
 
 

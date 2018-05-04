@@ -21,9 +21,7 @@ def startserver(welcoming_port, window_size=15, max_seq_num=-1, loss_prob=0.2):
         gbn_sender.insert_in_buffer(str(uuid.uuid4().hex)[0:6])
         gbn_sender.insert_in_buffer(number_of_packets)
 
-        # for i in range(1, 100):
-        #     gbn_sender.insert_in_buffer(i)
-        with open(file_name, 'rb') as file:
+        with open(f'../test_files/{file_name}', 'rb') as file:
             for i in range(number_of_packets):
                 data_chunk = file.read(CHUNK_SIZE)
                 gbn_sender.insert_in_buffer(data_chunk)

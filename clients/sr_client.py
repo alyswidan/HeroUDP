@@ -19,3 +19,4 @@ def start_client(server_ip, server_port, file_name, window_size=15, max_seq_num=
         for i in range(number_of_packets):
             file.write(sr_receiver.get_packet().data)
     sr_receiver.close()
+
