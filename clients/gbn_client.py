@@ -1,8 +1,8 @@
 from receivers.gbn_receiver import GoBackNReceiver
 from senders.gbn_sender import GoBackNSender
 
-def start_client(server_ip, server_port, file_name, window_size=15, loss_prob=0.2):
-    gbn_sender = GoBackNSender(server_ip, server_port)
+def start_client(other_ip, other_port, file_name, loss_prob=0.2, **kwargs):
+    gbn_sender = GoBackNSender(other_ip, other_port)
     gbn_sender.start_data_waiter()
     gbn_sender.insert_in_buffer(file_name)
     gbn_sender.insert_in_buffer(bytes(0))
@@ -20,4 +20,3 @@ def start_client(server_ip, server_port, file_name, window_size=15, loss_prob=0.
             file.write(gbn_receiver.get_packet().data)
     gbn_receiver.close()
 
-start_client('127.0.0.1',3000, '../test_files/medium_pdf_test',loss_prob=0.2)

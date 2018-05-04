@@ -1,14 +1,14 @@
 from receivers.sr_receiver import SelectiveRepeatReceiver
 from senders.sr_sender import SelectiveRepeatSender
 
-def start_client(server_ip, server_port, file_name, window_size=15, max_seq_num=-1, loss_prob=0.2):
-    sr_sender = SelectiveRepeatSender(server_ip, server_port)
+def start_client(other_ip, other_port, file_name, window=15, loss_prob=0.2, **kwargs):
+    sr_sender = SelectiveRepeatSender(other_ip, other_port)
     sr_sender.start_data_waiter()
     sr_sender.insert_in_buffer(file_name)
     sr_sender.insert_in_buffer(bytes(0))
     sr_sender.close()
 
-    sr_receiver = SelectiveRepeatReceiver.from_sender(sr_sender,window_size=window_size, loss_prob=loss_prob)
+    sr_receiver = SelectiveRepeatReceiver.from_sender(sr_sender,window_size=window, loss_prob=loss_prob)
     sr_receiver.start_data_waiter()
     id_pkt = sr_receiver.get_packet() # get an id from the server
     client_id = str(id_pkt.data,'ascii')

@@ -8,10 +8,12 @@ from receivers.stop_and_wait_receiver import StopAndWaitReceiver
 CHUNK_SIZE = 500
 logger = get_stdout_logger('sw_server')
 
-def start_server(welcoming_port, loss_prob):
+def start_server(port, loss_prob=0.2, random_seed=5, **kwargs):
     def send_file(file_name, sw_sender, client_id):
+        file_name = str(file_name, 'ascii')
+        path = f'HeroUDP/test_files/{file_name}'
         # get the number of packets required to send the fil
-        bytes_in_file = os.stat(file_name).st_size
+        bytes_in_file = os.stat(path).st_size
         number_of_packets = bytes_in_file // CHUNK_SIZE
         number_of_packets += 1 if number_of_packets % CHUNK_SIZE != 0 else 0
 
@@ -21,7 +23,7 @@ def start_server(welcoming_port, loss_prob):
 
         logger.info(f'started sending {file_name} to {(sw_sender.server_ip, sw_sender.server_port)}')
 
-        with open(f'../test_files/{file_name}', 'rb') as file:
+        with open(path, 'rb') as file:
             for i in range(number_of_packets):
                 data_chunk = file.read(CHUNK_SIZE)
                 sw_sender.send_data(data_chunk, client_id, i)
@@ -31,8 +33,8 @@ def start_server(welcoming_port, loss_prob):
 
 
     welcoming_receiver = StopAndWaitReceiver(loss_prob)
-    welcoming_receiver.listen(welcoming_port)
-    logger.info( f'listening on port {welcoming_port}')
+    welcoming_receiver.listen(port)
+    logger.info( f'listening on port {port}')
     while 1:
         init_packet, sw_sender  = welcoming_receiver.receive()
         file_name = init_packet.data
@@ -42,4 +44,3 @@ def start_server(welcoming_port, loss_prob):
         client_thread.daemon = True
         client_thread.start()
 
-start_server(20000,0.2)
