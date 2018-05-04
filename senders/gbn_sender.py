@@ -7,7 +7,7 @@ from helpers.logger_utils import get_stdout_logger
 from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from senders.udt_sender import UDTSender, LossyUDTSender
 
-logger = get_stdout_logger('sr_sender','DEBUG')
+logger = get_stdout_logger('gbn_sender','DEBUG')
 TIMEOUT = 0.1
 
 def synchronized(wrapped):
@@ -26,7 +26,7 @@ def synchronized(wrapped):
             return result
     return _wrap
 
-class SelectiveRepeatSender:
+class GoBackNSender:
 
 
     def __init__(self, receiver_ip, receiver_port, window_size=4, max_seq_num=-1, buffer_size = 5, loss_prob=0):
@@ -39,8 +39,8 @@ class SelectiveRepeatSender:
         self.receiver_ip = receiver_ip
         self.receiver_port = receiver_port
 
-        self.max_seq_num = max(2 * window_size, max_seq_num)
-        self.current_seq_num = 0
+        self.max_seq_num = max(3 * window_size, max_seq_num) + 1
+        self.current_seq_num = 1
 
         # the buffer used by the server to pass data chunks and a condition variable to block
         # the thread passing chunks when the buffer is full
@@ -54,7 +54,7 @@ class SelectiveRepeatSender:
         # the window used to buffer packets for retransmission
         self.current_window = deque([None for _ in range(window_size)])
         self.next_slot = 0
-        self.base_seq_num = 0
+        self.base_seq_num = 1
 
         self.timer = None
         self.acked_pkts_queue = deque() # this is used by a thread waiting for an ack
@@ -84,11 +84,15 @@ class SelectiveRepeatSender:
             if data_chunk is not None :
                 if self.add_to_window(data_chunk):
                     self.send_packet(self.current_seq_num)
+                    self.inc_current_seq_num()
 
             ack = self.get_ack()
 
             if ack is not None:
-                self.adjust_window(ack.seq_num)
+                logger.debug('got an ack from queue')
+                if self.is_in_window(ack.seq_number):
+                    self.adjust_window(ack.seq_number)
+
 
     def start_ack_waiter(self):
         ack_waiter = Thread(target=self.wait_for_ack)
@@ -98,34 +102,50 @@ class SelectiveRepeatSender:
     def wait_for_ack(self):
 
         while not self.done_sending:
+            try:
                 packet, sender_address = self.udt_receiver.receive()
-                self.insert_ack(packet)
-                logger.info( f'received an ACk with seq num {packet.seq_number}'
-                             f' from {sender_address}')
+            except:
+                continue
+            self.insert_ack(packet)
+            logger.info( f'received an ACk with seq num {packet.seq_number}'
+                         f' from {sender_address}')
 
     def timeout(self):
         logger.info(f'timer timed out')
+        self.start_timer()
         self.retransmit_window()
 
     def retransmit_window(self):
-        for i in range(self.next_slot):
-            logger.log(f'retransmitting packet {i}')
-            self.send_packet(i)
+        logger.debug(f'window before retransmitting = {self.current_window} '
+                     f'| base={self.base_seq_num})')
+
+        curr = self.base_seq_num
+
+        for i in range(self.window_size):
+            if self.current_window[i] is None:
+                break
+
+            logger.info(f'retransmitting packet {curr}')
+            self.send_packet(curr)
+            curr = self.get_next_num(curr , 1)
 
     def send_packet(self, seq_num):
 
         """This expects the packet with sequence number (seq_num) to be in the window"""
 
         logger.debug('entering send_packet')
-
-        data_chunk = self.current_window[self.get_window_idx(seq_num)].data_chunk
-        self.udt_sender.send_data(data_chunk, seq_num)
-
+        w=self.get_window_idx(seq_num)
+        logger.debug(f'window index is {w}')
+        data_chunk = self.current_window[w]
+        logger.debug(f'sending {data_chunk} at {self.get_window_idx(seq_num)}')
+        try:
+            self.udt_sender.send_data(data_chunk, seq_num)
+        except:
+            logger.error(f'{self.current_window} | {self.base_seq_num}')
         if self.base_seq_num == self.current_seq_num:
             self.start_timer()
             logger.info( f'starting the timer for {seq_num}')
 
-        self.inc_current_seq_num()
 
         logger.debug('exiting send_packet')
 
@@ -136,16 +156,19 @@ class SelectiveRepeatSender:
             return True
         return False
 
+
     def adjust_window(self, seq_num):
         """
         :param seq_num: sequence number of the ack received
         :return:
         """
 
-        logger.debug(f'window after adjusting = {self.current_window} '
+        logger.debug(f'window before adjusting = {self.current_window} '
                      f'| base={self.base_seq_num})')
 
+
         window_idx = self.get_window_idx(seq_num)
+        logger.debug(f'window index = {window_idx}')
         shifts = window_idx + 1
 
         for i in range(window_idx, -1, -1):
@@ -153,30 +176,40 @@ class SelectiveRepeatSender:
 
 
         self.current_window.rotate(-shifts)
-        self.base_seq_num = (self.base_seq_num + shifts) % self.max_seq_num
+        self.base_seq_num = self.get_next_num(seq_num, 1)
         self.next_slot -= shifts
 
         logger.debug(f'window after adjusting = {self.current_window} '
                      f'| base={self.base_seq_num})')
 
         if self.base_seq_num == self.current_seq_num:
-            self.start_timer()
-        else:
             self.stop_timer()
+        else:
+            self.start_timer()
 
         with self.closing_cv:
+            logger.debug(f'base={self.base_seq_num}, curr seq num={self.current_seq_num}')
             if self.base_seq_num == self.current_seq_num: # if the window is empty
                 self.closing_cv.notify()
 
     def start_timer(self):
+        self.stop_timer()
         self.timer = Timer(TIMEOUT, self.timeout)
         self.timer.start()
 
     def stop_timer(self):
-        self.timer.cancel()
+        if self.timer is not None:
+            self.timer.cancel()
+
 
     def get_window_idx(self, seq_num):
-        seq_num = seq_num if seq_num >= self.base_seq_num else seq_num + self.max_seq_num
+
+        if seq_num == self.base_seq_num-1 or (seq_num == self.max_seq_num - 1 and self.base_seq_num == 1):
+            return -1
+
+        seq_num = seq_num if seq_num >= self.base_seq_num else seq_num + self.max_seq_num-1
+        logger.debug(f'getting window index for {seq_num} as {seq_num - self.base_seq_num} '
+                     f'| {self.current_window} | base={self.base_seq_num}')
         return seq_num - self.base_seq_num
 
     def insert_ack(self, ack):
@@ -188,23 +221,32 @@ class SelectiveRepeatSender:
             ack = self.acked_pkts_queue.popleft()
         except:
             pass
-
         return ack
+
+
+    def get_next_num(self, num, delta):
+        """
+        returns the next number in the sequence modulo the max sequence number
+        given we start counting at 1 not 0
+        :param num: the number to increment
+        :param delta: by how much we want to increment this number
+        :return:
+        """
+
+        next_num = (num + delta) % self.max_seq_num
+        return next_num + 1 if next_num == 0 else next_num
+
+
 
     def inc_current_seq_num(self):
         """
         This gets the next sequence number modulo the max sequence number
         :returns the next sequence number:
         """
-        self.current_seq_num = self.peek_next_seq_num()
+        logger.debug(f'incrementing curr sn from {self.current_seq_num} to {self.get_next_num(self.current_seq_num, 1)}')
+        self.current_seq_num = self.get_next_num(self.current_seq_num, 1)
         return self.current_seq_num
 
-    def peek_next_seq_num(self):
-        """
-        This gets the next sequence number modulo the max sequence number
-        :returns the next sequence number:
-        """
-        return  (self.current_seq_num + 1) % self.max_seq_num
 
     def insert_in_buffer(self, data_chunk):
         """
@@ -259,4 +301,13 @@ class SelectiveRepeatSender:
         self.done_sending = True
         self.get_from_buffer() # notify the producer
         self.udt_receiver.interrupt()
-        logger.info( '(sr_sender) : closed the sender successfully')
+        logger.info( 'closed the sender successfully')
+
+    def is_in_window(self, seq_num):
+        is_in = False
+        curr = self.base_seq_num
+        for i in range(self.window_size):
+            if curr == seq_num:
+                return True
+            curr = self.get_next_num(curr, 1)
+        return False

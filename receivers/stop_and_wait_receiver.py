@@ -1,6 +1,6 @@
 import logging
 
-from helpers import get_stdout_logger
+from helpers.logger_utils import get_stdout_logger
 from lossy_decorator import get_lossy_udt_sender
 from receivers.udt_receiver import UDTReceiver
 from senders.stop_and_wait_sender import StopAndWaitSender

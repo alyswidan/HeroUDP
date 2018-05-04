@@ -2,22 +2,24 @@ import time
 from collections import deque
 from threading import Lock, Condition, Thread
 
+from senders.gbn_sender import GoBackNSender
 from senders.udt_sender import UDTSender, LossyUDTSender
 
 from helpers.logger_utils import get_stdout_logger
 from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from senders.sr_sender import SelectiveRepeatSender
 
-logger = get_stdout_logger('sr_receiver', 'DEBUG')
+logger = get_stdout_logger('gbn_receiver', 'DEBUG')
 
 
-class SelectiveRepeatReceiver:
+class GoBackNReceiver:
 
-    def __init__(self, window_size=4, max_seq_num=-1, loss_prob=0):
+    def __init__(self, max_seq_num=30, loss_prob=0):
         self.udt_receiver = InterruptableUDTReceiver(UDTReceiver())
         self.udt_listening_receiver = UDTReceiver()
-        self.max_seq_num = max(2 * window_size, max_seq_num)
-        self.expected_seq_num = 0
+        self.max_seq_num = max_seq_num + 1
+        self.expected_seq_num = 1
+        self.previous_seq_num = 0
         self.data_queue = deque()
         self.data_queue_cv = Condition()
         self.done_receiving = False
@@ -35,21 +37,35 @@ class SelectiveRepeatReceiver:
 
         while not self.done_receiving:
             packet, sender_address = self.udt_receiver.receive()
-            logger.info(f'received {packet.data} from {sender_address}')
+            logger.info(f'received {packet.data},'
+                        f' with seq num {packet.seq_number}, expecting {self.expected_seq_num}'
+                        f' from {sender_address}')
 
             if packet.seq_number == self.expected_seq_num:
                 self.send_ack(packet.seq_number, sender_address)
                 with self.data_queue_cv:
-                    self.data_queue.append(packet)
-                    self.data_queue_cv.notify()
 
-    def send_ack(self,seq_number, sender_address):
+                    self.data_queue.append(packet)
+                    logger.debug(f'notify {len(self.data_queue)}')
+                    self.data_queue_cv.notify()
+            else:
+                self.send_ack(self.previous_seq_num, sender_address, is_duplicate=True)
+
+
+    def send_ack(self,seq_number, sender_address, is_duplicate=False):
+        logger.debug(f'sending an ack for {seq_number}')
+        logger.debug(f'expected seq num just  before sending ack = {self.expected_seq_num}')
         udt_sender = LossyUDTSender(UDTSender.from_udt_receiver(self.udt_receiver, *sender_address),
                                                                 self.loss_prob)
         udt_sender.send_ack(seq_number)
 
         logger.info(f'sent an Ack with seq number {seq_number} to {sender_address}')
-        self.expected_seq_num = (self.expected_seq_num + 1) % self.max_seq_num
+        if not is_duplicate:
+            self.previous_seq_num = self.expected_seq_num
+            self.expected_seq_num = self.get_next_num(self.expected_seq_num, 1)
+
+        logger.debug(f'expected seq num after adjusting for data = {self.expected_seq_num}')
+
 
     def get_packet(self):
 
@@ -60,10 +76,22 @@ class SelectiveRepeatReceiver:
             return pkt
 
     @classmethod
-    def from_sender(cls, sr_sender, window_size=4, max_seq_num=-1, loss_prob=0):
-        sr_receiver = cls(window_size=window_size, max_seq_num=max_seq_num,loss_prob=loss_prob)
-        sr_receiver.udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(sr_sender.udt_sender))
-        return sr_receiver
+    def from_sender(cls, gbn_sender, max_seq_num=-1, loss_prob=0):
+        gbn_receiver = cls(max_seq_num=max_seq_num,loss_prob=loss_prob)
+        gbn_receiver.udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(gbn_sender.udt_sender))
+        return gbn_receiver
+
+    def get_next_num(self, num, delta):
+        """
+        returns the next number in the sequence modulo the max sequence number
+        given we start counting at 1 not 0
+        :param num: the number to increment
+        :param delta: by how much we want to increment this number
+        :return:
+        """
+
+        next_num = (num + delta) % self.max_seq_num
+        return next_num + ((num + delta)//self.max_seq_num) if next_num == 0 else next_num
 
     def listen(self, port):
         """
@@ -87,7 +115,8 @@ class SelectiveRepeatReceiver:
         logger.info( f'(listener) : received {init_packet.data} from {sender_address}')
         self.send_ack(init_packet.seq_number, sender_address)
 
-        client_thread = Thread(target=extended_callback, args=(init_packet, SelectiveRepeatSender(*sender_address, **sender_args)))
+        client_thread = Thread(target=extended_callback,
+                               args=(init_packet, GoBackNSender(*sender_address, **sender_args)))
         client_thread.daemon = True
         client_thread.start()
 
@@ -98,7 +127,7 @@ class SelectiveRepeatReceiver:
             while len(self.data_queue) > 0:
                 self.closing_cv.wait()
 
-            time.sleep(5) # wait for half a millisecond in case this is just a pause due to delays
+            time.sleep(10) # wait for half a millisecond in case this is just a pause due to delays
             logger.debug('woke up')
             if len(self.data_queue) > 0:
                 self.close()
