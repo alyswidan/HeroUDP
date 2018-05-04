@@ -1,23 +1,21 @@
 import logging
 
 from helpers.logger_utils import get_stdout_logger
-from lossy_decorator import get_lossy_udt_sender
 from receivers.udt_receiver import UDTReceiver
 from senders.stop_and_wait_sender import StopAndWaitSender
+from senders.udt_sender import LossyUDTSender, UDTSender
 
 logger = get_stdout_logger('sw_receiver')
-LOSS_PROB = 0.1
 
 class StopAndWaitReceiver:
-    def __init__(self):
-        self.udt_receiver_class = UDTReceiver
-        self.rdt_sender_class = StopAndWaitSender
-        self.udt_receiver = self.udt_receiver_class()
+    def __init__(self, loss_prob=0):
+        self.udt_receiver = UDTReceiver()
         self.udt_listening_receiver = None
         self.states = {'wait_data_0': self.WaitForDataState(self,0),
                        'wait_data_1': self.WaitForDataState(self,1)}
         self.current_state = self.states['wait_data_0']
         self.is_listening = False
+        self.loss_prob = loss_prob
 
     @classmethod
     def from_sw_sender(cls, sw_sender):
@@ -30,7 +28,7 @@ class StopAndWaitReceiver:
         This sets up the receiver to start listening for incoming connections on the port passed in as a parameter.
         :param port:
         """
-        self.udt_listening_receiver = self.udt_receiver_class()
+        self.udt_listening_receiver = UDTReceiver()
         self.udt_listening_receiver.bind(port)
         self.is_listening = True
 
@@ -71,14 +69,14 @@ class StopAndWaitReceiver:
 
                 packet, sender_address = receiver.receive()
 
-                udt_sender = get_lossy_udt_sender(LOSS_PROB)(*sender_address,)
+                udt_sender = LossyUDTSender(UDTSender(*sender_address), self.parent.loss_prob)
 
 
             # ack the correct packet
             udt_sender.send_ack(self.seq_number)
             logger.log(logging.INFO, f'received data with sequence number {self.seq_number} ')
             logger.log(logging.INFO, f'sent an ack for {self.seq_number}')
-            return packet, self.parent.rdt_sender_class(*sender_address)
+            return packet, StopAndWaitSender(*sender_address, self.parent.loss_prob)
 
 
         def transition(self):

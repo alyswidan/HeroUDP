@@ -1,20 +1,20 @@
 import logging
 from threading import Condition, Timer
 
-from helpers import get_stdout_logger
+from helpers.logger_utils import get_stdout_logger
 from models.packet import DataPacket
 from receivers.udt_receiver import UDTReceiver
-from senders.udt_sender import UDTSender
+from senders.udt_sender import UDTSender, LossyUDTSender
 
 logger = get_stdout_logger('sw_sender')
 TIMEOUT = 0.1
 class StopAndWaitSender:
 
-    def __init__(self, server_ip, server_port):
+    def __init__(self, server_ip, server_port, loss_prob=0):
         self.server_ip = server_ip
         self.server_port = server_port
-        self.udt_sender_class = UDTSender
-        self.setup_senders_and_receivers()
+        self.udt_sender = LossyUDTSender(UDTSender(self.server_ip, self.server_port), loss_prob)
+        self.udt_receiver = UDTReceiver.from_udt_sender(self.udt_sender)
         self.call_from_above_cv = Condition()
 
         self.states = {'wait_data_0':self.WaitForDataState(self, 0),
@@ -24,13 +24,6 @@ class StopAndWaitSender:
 
         self.current_state = self.states['wait_data_0']
         self.timers = []
-
-    def setup_senders_and_receivers(self):
-        """
-        sets up the udt_sender and receiver should be called by any class that changes the udt_sender_class
-        """
-        self.udt_sender = self.udt_sender_class(self.server_ip, self.server_port)
-        self.udt_receiver = UDTReceiver.from_udt_sender(self.udt_sender)
 
     def send_data(self, data_chunk, client_id, chunk_number):
         """
@@ -42,6 +35,17 @@ class StopAndWaitSender:
         self.current_state = self.current_state.transition()
         self.current_state.receive(client_id, chunk_number)
         self.current_state = self.current_state.transition()
+
+
+    def resend_data(self, data_chunk, chunk_number, client_id, seq_num):
+        """
+        this is the callback for the timer, it creates a new timer and calls the send method of the current state
+        the current state has to be a waiting for data state
+        This function returns nothing since it is meant to be used as a callback
+        """
+        logger.log(logging.INFO, f'data packet with number {chunk_number} timed out')
+        self.states[f'wait_data_{seq_num}'].send(data_chunk, client_id, chunk_number)
+
 
     def close(self):
         self.udt_receiver.close()
@@ -106,11 +110,3 @@ class StopAndWaitSender:
             return self.parent.states[f'wait_data_{self.seq_number ^ 1}']
 
 
-    def resend_data(self, data_chunk, chunk_number, client_id, seq_num):
-        """
-        this is the callback for the timer, it creates a new timer and calls the send method of the current state
-        the current state has to be a waiting for data state
-        This function returns nothing since it is meant to be used as a callback
-        """
-        logger.log(logging.INFO, f'data packet with number {chunk_number} timed out')
-        self.states[f'wait_data_{seq_num}'].send(data_chunk, client_id, chunk_number)

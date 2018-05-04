@@ -2,9 +2,9 @@
 import uuid
 
 from helpers.logger_utils import get_stdout_logger
-from lossy_decorator import *
 from receivers.stop_and_wait_receiver import StopAndWaitReceiver
 from senders.stop_and_wait_sender import StopAndWaitSender
+import logging
 
 logger = get_stdout_logger('sw_client')
 
@@ -29,4 +29,4 @@ with open(f'{file_name}_client_{run_unique_id}', 'wb+') as file:
     for packet in packets:
         file.write(packet.data)
 
-logging.log(logging.INFO, 'done writing file to disk')
+logger.log(logging.INFO, 'done writing file to disk')
