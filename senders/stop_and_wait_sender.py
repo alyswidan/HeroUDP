@@ -14,7 +14,7 @@ class StopAndWaitSender:
         self.server_ip = server_ip
         self.server_port = server_port
         self.udt_sender = CorruptingUDTSender(LossyUDTSender(UDTSender(server_ip, server_port), loss_prob), loss_prob)
-        self.udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(self.udt_sender))
+        self.udt_receiver = UDTReceiver.from_udt_sender(self.udt_sender)
         self.call_from_above_cv = Condition()
 
         self.states = {'wait_data_0':self.WaitForDataState(self, 0),
@@ -98,7 +98,8 @@ class StopAndWaitSender:
                                     packet.seq_number != self.seq_number:
 
                 packet, sender_address = self.parent.udt_receiver.receive()
-
+                if packet is None:
+                    continue
 
             logger.log(logging.INFO, f'received an ack for {chunk_number} from {client_id}')
             for t in self.parent.timers:

@@ -3,13 +3,13 @@ import logging
 from helpers.logger_utils import get_stdout_logger
 from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from senders.stop_and_wait_sender import StopAndWaitSender
-from senders.udt_sender import LossyUDTSender, UDTSender
+from senders.udt_sender import LossyUDTSender, UDTSender, CorruptingUDTSender
 
 logger = get_stdout_logger('sw_receiver')
 
 class StopAndWaitReceiver:
     def __init__(self, loss_prob=0):
-        self.udt_receiver = InterruptableUDTReceiver(UDTReceiver())
+        self.udt_receiver = UDTReceiver()
         self.udt_listening_receiver = None
         self.states = {'wait_data_0': self.WaitForDataState(self,0),
                        'wait_data_1': self.WaitForDataState(self,1)}
@@ -28,7 +28,7 @@ class StopAndWaitReceiver:
         This sets up the receiver to start listening for incoming connections on the port passed in as a parameter.
         :param port:
         """
-        self.udt_listening_receiver = InterruptableUDTReceiver(UDTReceiver())
+        self.udt_listening_receiver = UDTReceiver()
         self.udt_listening_receiver.bind(port)
         self.is_listening = True
 
@@ -68,9 +68,11 @@ class StopAndWaitReceiver:
                     logger.log(logging.INFO, f'received a retransmission and sent a duplicate ack')
 
                 packet, sender_address = receiver.receive()
+                if packet is None:
+                    continue
 
 
-                udt_sender = LossyUDTSender(UDTSender(*sender_address), self.parent.loss_prob)
+                udt_sender = CorruptingUDTSender(LossyUDTSender(UDTSender(*sender_address), self.parent.loss_prob))
 
 
             # ack the correct packet
