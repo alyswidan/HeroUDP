@@ -34,9 +34,9 @@ def start_server(port, window=15, loss_prob=0.2, random_seed=5, **kwargs):
 
 
 
-    listening_receiver = SelectiveRepeatReceiver()
+    listening_receiver = SelectiveRepeatReceiver(max_seq_num=1000000)
     listening_receiver.listen(port)
 
     while True:
         logger.info(f'server listening on port {port}')
-        client_thread = listening_receiver.accept(send_file, window_size=window, loss_prob=loss_prob)
+        client_thread = listening_receiver.accept(send_file, window_size=window, loss_prob=loss_prob,max_seq_num=1000000)

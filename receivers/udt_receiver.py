@@ -25,12 +25,16 @@ class UDTReceiver:
         raw_packet, server_address = self.socket.recvfrom(BUFFER_SIZE)
 
         if len(raw_packet) == BUFFER_SIZE//QUEUE_SIZE:
-
             packet = DataPacket.from_raw(raw_packet)
-            logger.debug( f'received {packet.data} from {server_address}')
+            if packet is not None:
+                logger.debug( f'received {packet.data} from {server_address}')
         else:
             packet = AckPacket.from_raw(raw_packet)
-            logger.debug( f'received an ACk with seq num {packet.seq_number} from {server_address}')
+            if packet is not None:
+                logger.debug( f'received an ACk with seq num {packet.seq_number} from {server_address}')
+
+        if packet is None:
+            logger.debug('received a corrupted packet')
 
         return packet, server_address
 
@@ -53,7 +57,11 @@ class InterruptableUDTReceiver:
     def receive(self):
         read, _w, errors = select.select([self._r_pipe, self.socket], [], [self.socket])
         if self.socket in read:
-            return self.udt_receiver.receive()
+            packet,address = self.udt_receiver.receive()
+            if packet is None:
+                return self.receive()
+            else:
+                return packet,address
         raise InterruptException
 
     def interrupt(self):
@@ -67,7 +75,7 @@ class InterruptableUDTReceiver:
         else:
             return found_attr
 
-        found_attr = self.udt_sender.__getattribute__(attr)
+        found_attr = self.udt_receiver.__getattribute__(attr)
 
         return found_attr
 

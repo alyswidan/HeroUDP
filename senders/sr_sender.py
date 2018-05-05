@@ -5,9 +5,9 @@ from threading import Lock, current_thread, Condition, Timer, Thread
 
 from helpers.logger_utils import get_stdout_logger
 from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
-from senders.udt_sender import UDTSender, LossyUDTSender
+from senders.udt_sender import UDTSender, LossyUDTSender, CorruptingUDTSender
 
-logger = get_stdout_logger('sr_sender','DEBUG')
+logger = get_stdout_logger('sr_sender')
 TIMEOUT = 0.1
 
 def synchronized(wrapped):
@@ -65,7 +65,8 @@ class SelectiveRepeatSender:
         self.done_sending = False
         self.waiting_to_close = False
         self.closing_cv = Condition()
-        self.udt_sender = LossyUDTSender(UDTSender(receiver_ip, receiver_port), loss_prob)
+        self.udt_sender = CorruptingUDTSender(LossyUDTSender(UDTSender(receiver_ip, receiver_port),
+                                                             loss_prob),0.5)
         self.udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(self.udt_sender))
 
 

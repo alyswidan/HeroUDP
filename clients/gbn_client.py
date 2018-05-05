@@ -15,7 +15,7 @@ def start_client(other_ip, other_port, file_name, loss_prob=0.2, **kwargs):
     count_pkt = gbn_receiver.get_packet() # get the number of packet the server will send
     number_of_packets = int(count_pkt.data)
 
-    with open(f'{file_name}_{client_id}', 'wb+') as file:
+    with open(f'HeroUDP/client_output/files/{file_name}_{client_id}_gbn', 'wb+') as file:
         for i in range(number_of_packets):
             file.write(gbn_receiver.get_packet().data)
     gbn_receiver.close()

@@ -19,7 +19,7 @@ def start_client(other_ip, other_port, file_name, **kwargs):
 
 
     for i in range(number_of_packets):
-        with open(f'{file_name}_{client_id}_sw','wb+') as file:
+        with open(f'HeroUDP/client_output/files/{file_name}_{client_id}_sw','wb+') as file:
             packet, _ = sw_receiver.receive()
             file.write(packet.data)
 

@@ -3,8 +3,8 @@ from threading import Condition, Timer
 
 from helpers.logger_utils import get_stdout_logger
 from models.packet import DataPacket
-from receivers.udt_receiver import UDTReceiver
-from senders.udt_sender import UDTSender, LossyUDTSender
+from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
+from senders.udt_sender import UDTSender, LossyUDTSender, CorruptingUDTSender
 
 logger = get_stdout_logger('sw_sender')
 TIMEOUT = 0.1
@@ -13,8 +13,8 @@ class StopAndWaitSender:
     def __init__(self, server_ip, server_port, loss_prob=0):
         self.server_ip = server_ip
         self.server_port = server_port
-        self.udt_sender = LossyUDTSender(UDTSender(self.server_ip, self.server_port), loss_prob)
-        self.udt_receiver = UDTReceiver.from_udt_sender(self.udt_sender)
+        self.udt_sender = CorruptingUDTSender(LossyUDTSender(UDTSender(server_ip, server_port), loss_prob), loss_prob)
+        self.udt_receiver = InterruptableUDTReceiver(UDTReceiver.from_udt_sender(self.udt_sender))
         self.call_from_above_cv = Condition()
 
         self.states = {'wait_data_0':self.WaitForDataState(self, 0),

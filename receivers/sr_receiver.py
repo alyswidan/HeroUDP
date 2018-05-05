@@ -2,13 +2,13 @@ import time
 from collections import deque
 from threading import Lock, Condition, Thread
 
-from senders.udt_sender import UDTSender, LossyUDTSender
+from senders.udt_sender import UDTSender, LossyUDTSender, CorruptingUDTSender
 
 from helpers.logger_utils import get_stdout_logger
 from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
 from senders.sr_sender import SelectiveRepeatSender
 
-logger = get_stdout_logger('sr_receiver', 'DEBUG')
+logger = get_stdout_logger('sr_receiver')
 
 
 class SelectiveRepeatReceiver:
@@ -16,7 +16,7 @@ class SelectiveRepeatReceiver:
     def __init__(self, window_size=4, max_seq_num=-1, loss_prob=0):
         self.cnt=0
         self.udt_receiver = InterruptableUDTReceiver(UDTReceiver())
-        self.udt_listening_receiver = UDTReceiver()
+        self.udt_listening_receiver = InterruptableUDTReceiver(UDTReceiver())
         self.current_window = deque([None for _ in range(window_size)])
         self.window_size = window_size
         self.max_seq_num = max(2 * window_size, max_seq_num)
@@ -40,7 +40,8 @@ class SelectiveRepeatReceiver:
         while not self.done_receiving:
             packet, sender_address = self.udt_receiver.receive()
             logger.info(f'received {packet.data} from {sender_address}')
-            udt_sender = LossyUDTSender(UDTSender.from_udt_receiver(self.udt_receiver,*sender_address), self.loss_prob)
+            udt_sender = CorruptingUDTSender(LossyUDTSender(UDTSender.from_udt_receiver(self.udt_receiver,*sender_address)
+                                                            , self.loss_prob),0.5)
             udt_sender.send_ack(packet.seq_number)
             logger.info(f'sent an Ack with seq number {packet.seq_number}'
                                             f'to {sender_address}')

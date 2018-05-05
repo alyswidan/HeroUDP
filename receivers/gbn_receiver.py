@@ -3,7 +3,7 @@ from collections import deque
 from threading import Lock, Condition, Thread
 
 from senders.gbn_sender import GoBackNSender
-from senders.udt_sender import UDTSender, LossyUDTSender
+from senders.udt_sender import UDTSender, LossyUDTSender, CorruptingUDTSender
 
 from helpers.logger_utils import get_stdout_logger
 from receivers.udt_receiver import UDTReceiver, InterruptableUDTReceiver
@@ -16,7 +16,7 @@ class GoBackNReceiver:
 
     def __init__(self, max_seq_num=30, loss_prob=0):
         self.udt_receiver = InterruptableUDTReceiver(UDTReceiver())
-        self.udt_listening_receiver = UDTReceiver()
+        self.udt_listening_receiver = InterruptableUDTReceiver(UDTReceiver())
         self.max_seq_num = max_seq_num + 1
         self.expected_seq_num = 1
         self.previous_seq_num = 0
@@ -55,8 +55,8 @@ class GoBackNReceiver:
     def send_ack(self,seq_number, sender_address, is_duplicate=False):
         logger.debug(f'sending an ack for {seq_number}')
         logger.debug(f'expected seq num just  before sending ack = {self.expected_seq_num}')
-        udt_sender = LossyUDTSender(UDTSender.from_udt_receiver(self.udt_receiver, *sender_address),
-                                                                self.loss_prob)
+        udt_sender = CorruptingUDTSender(LossyUDTSender(UDTSender.from_udt_receiver(self.udt_receiver, *sender_address),
+                                                                self.loss_prob), self.loss_prob)
         udt_sender.send_ack(seq_number)
 
         logger.info(f'sent an Ack with seq number {seq_number} to {sender_address}')
