@@ -25,7 +25,7 @@ number of packets it is going to send.The server then starts sending the file.
 ### UDT senders and receivers
 The classes implementing the reliable protocols use udt_senders and udt_receivers
 to send and receive packets instead of sending through the UDP socket directly.
-####UDT Senders
+#### UDT Senders
 All udt senders have 2 main methods: send_ack and send_data, these are used by the
 protocols to send data and acks respectively. Another variant is the LossyUDTSender
 which uses the methods of udt sender to send the data, however it decides weather
