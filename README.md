@@ -1,7 +1,14 @@
 # HeroUDP
 An implementation of three reliable data transfer 
 protocols: Stop and wait, go back N and selective 
-repeat on top of UDP.
+repeat on top of UDP, with the ability to simulate packet loss and corruption for testing on the same machine.
+
+### Usage
+This project has a dependency on numpy to generate random choices for wether to corrupt packets and drop them.
+This tool could be used to build new clients and servers that leverage these protocols by using the senders and receivers described below, the example servers and clients 
+could also be used to try the system and perform the process described in the workflow section, the tool is invoked using the following 
+HeroUDP [client | server] [sr | gbn | sw] --config {name of config file}
+instead of using a config file options could be passed directly from the command line, invoke the tool using HeroUDP --help for more info about the available options.
 
 ### Repo Structure
 The implementation of the protocols is split into

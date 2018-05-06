@@ -34,7 +34,7 @@ cmd_config_group.add_argument('--port', help='port of the calling side',type=int
 cmd_config_group.add_argument('--ip', help='ip of the calling side')
 
 cmd_config_group.add_argument('--loss_prob', help='the packet loss probability to use in the simulation',
-                              type=float, default=0)
+                              type=float, default=0.3)
 
 cmd_config_group.add_argument('--random_seed', help='the packet loss probability to use in the simulation',
                               type=float, default=5)
@@ -46,7 +46,6 @@ actions = {'client':{'sr':sr_client.start_client,'gbn':gbn_client.start_client,'
            'server':{'sr':sr_server.start_server,'gbn':gbn_server.start_server,'sw':sw_server.start_server}}
 
 params = parse_config(args.config, args.host_type) if args.config else vars(args)
-print(params)
 actions[args.host_type][args.protocol](**params)
 
 

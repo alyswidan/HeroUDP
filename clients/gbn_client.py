@@ -1,6 +1,7 @@
+from helpers.general_helpers import timeit
 from receivers.gbn_receiver import GoBackNReceiver
 from senders.gbn_sender import GoBackNSender
-
+@timeit('gbn_client')
 def start_client(other_ip, other_port, file_name, loss_prob=0.2, **kwargs):
     gbn_sender = GoBackNSender(other_ip, other_port)
     gbn_sender.start_data_waiter()

@@ -1,6 +1,9 @@
+from helpers.general_helpers import timeit
 from receivers.sr_receiver import SelectiveRepeatReceiver
 from senders.sr_sender import SelectiveRepeatSender
 
+
+@timeit('sr_client')
 def start_client(other_ip, other_port, file_name, window=15, loss_prob=0.2, **kwargs):
     sr_sender = SelectiveRepeatSender(other_ip, other_port, max_seq_num=1000000)
     sr_sender.start_data_waiter()

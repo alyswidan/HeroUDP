@@ -1,9 +1,11 @@
 import uuid
+
+from helpers.general_helpers import timeit
 from helpers.logger_utils import get_stdout_logger
 from receivers.stop_and_wait_receiver import StopAndWaitReceiver
 from senders.stop_and_wait_sender import StopAndWaitSender
 import logging
-
+@timeit('sw_client')
 def start_client(other_ip, other_port, file_name, **kwargs):
 
     logger = get_stdout_logger('sw_client')

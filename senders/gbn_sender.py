@@ -10,21 +10,6 @@ from senders.udt_sender import UDTSender, LossyUDTSender, CorruptingUDTSender
 logger = get_stdout_logger('gbn_sender','DEBUG')
 TIMEOUT = 0.1
 
-def synchronized(wrapped):
-    lock = Lock()
-    print(lock, id(lock))
-    @functools.wraps(wrapped)
-    def _wrap(*args, **kwargs):
-        with lock:
-            print ("Calling '%s' with Lock %s from thread %s [%s]"
-                   % (wrapped.__name__, id(lock),
-                   current_thread().name, time.time()))
-            result = wrapped(*args, **kwargs)
-            print ("Done '%s' with Lock %s from thread %s [%s]"
-                   % (wrapped.__name__, id(lock),
-                   current_thread().name, time.time()))
-            return result
-    return _wrap
 
 class GoBackNSender:
 
@@ -133,12 +118,13 @@ class GoBackNSender:
 
         """This expects the packet with sequence number (seq_num) to be in the window"""
 
-        logger.debug('entering send_packet')
-        w=self.get_window_idx(seq_num)
-        logger.debug(f'window index is {w}')
-        data_chunk = self.current_window[w]
-        logger.debug(f'sending {data_chunk} at {self.get_window_idx(seq_num)}')
+
         try:
+            logger.debug('entering send_packet')
+            w = self.get_window_idx(seq_num)
+            logger.debug(f'window index is {w}')
+            data_chunk = self.current_window[w]
+            logger.debug(f'sending {data_chunk} at {self.get_window_idx(seq_num)}')
             self.udt_sender.send_data(data_chunk, seq_num)
         except:
             logger.error(f'{self.current_window} | {self.base_seq_num}')
