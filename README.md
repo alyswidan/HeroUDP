@@ -20,7 +20,7 @@ instead of using a config file options could be passed directly from the command
 The implementation of the protocols is split into
 senders and receivers which are used by the clients 
 and servers to send data to each other.
-### Workflow
+###Workflow
 For each of the clients and servers the client starts 
 by sending the file name it wants to download from the server,the server uses this
 packet to know the port of the client.Upon receiving the packet, the server starts
